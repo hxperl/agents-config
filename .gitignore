@@ -1,0 +1,14 @@
+.DS_Store
+*.log
+*.sqlite*
+*.jsonl
+.env
+.env.*
+auth.json
+settings.json
+config.toml
+node_modules/
+sessions/
+logs/
+cache/
+tmp/
