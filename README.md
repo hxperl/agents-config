@@ -7,7 +7,6 @@ Version-controlled, reusable configuration for local coding agents.
 - `machine/codex/AGENTS.md`: machine-wide Codex operating rules
 - `machine/claude/CLAUDE.md`: machine-wide Claude operating rules
 - `skills/parallel-worker-orchestration`: supervised mixed-provider orchestration
-- `skills/opencode-go-only-orchestration`: OpenCode Go-only fallback orchestration
 - `skills/review-pr-with-intent`: intent-aware pull-request review
 
 ## Local targets
@@ -17,7 +16,6 @@ Version-controlled, reusable configuration for local coding agents.
 | `machine/codex/AGENTS.md` | `~/.codex/AGENTS.md` |
 | `machine/claude/CLAUDE.md` | `~/.claude/CLAUDE.md` |
 | `skills/parallel-worker-orchestration` | `~/.agents/skills/parallel-worker-orchestration` |
-| `skills/opencode-go-only-orchestration` | `~/.agents/skills/opencode-go-only-orchestration` |
 | `skills/review-pr-with-intent` | `~/.codex/skills/review-pr-with-intent` |
 
 Copy or symlink these paths deliberately. This repository does not include an
