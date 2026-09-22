@@ -41,13 +41,15 @@ and include that path as a mandatory prerequisite in every Claude, Codex, or
 other worker task; never assume a fresh worker will discover the skill
 implicitly.
 
-For every PR, assign one Claude worker and one Qwen Code worker by default to
+For every PR, assign one Claude worker and two Qwen Code workers by default to
 independently review the verified base-to-head diff. Launch Qwen Code with
-`--agent qwen-code` only, without `--model` or `--effort`. When the coordinator
+`--agent qwen-code` only, without `--model` or `--effort`. Qwen findings,
+severity, and review-state recommendations are provisional. When the coordinator
 is Codex, keep final adjudication with the coordinator, who must independently
-verify every material claim against the live PR, source, and tests. Substitute
-a Codex worker only when the user explicitly requests it or Qwen Code fails a
-measured readiness/startup check, and report that fallback. Each task must also
+verify every material claim against the live PR, source, and tests. Do not add a
+Codex worker by default. Use one only when the user explicitly requests it or a
+Qwen slot fails a measured readiness/startup check and an independent replacement
+is still required; report that fallback. Each task must also
 embed the intent-aware core contract: read the entire live PR body, commits,
 comments/reviews, linked tickets and predecessor/successor/stacked PRs; produce
 the complete intent ledger before findings; do not classify verified follow-up
@@ -55,7 +57,11 @@ scope as a current blocker; turn unclear intent or merge order into an author
 question.
 
 Reject reports that omit the intent ledger or fail to verify declared deferrals.
-After both valid reports arrive, run a tracked reciprocal cross-review for that
-same PR. The coordinator may publish only the in-scope finding set supported by
-this process. Preserve the Claude-plus-Qwen-Code pair and consensus round
-separately for every PR in a multi-PR request.
+In the default topology, run one tracked consensus round after all three valid
+reports arrive. The Claude worker critiques both Qwen reports; each Qwen worker
+fact-checks at least one other report's cited evidence and intent ledger. The
+coordinator independently adjudicates every material disagreement and may
+publish only the verified in-scope finding set. If Claude is unavailable, keep
+the two Qwen reviews and require the Codex coordinator to complete a full
+independent review before starting adjudication; report this degraded topology.
+Preserve the per-PR pool and consensus round separately in a multi-PR request.

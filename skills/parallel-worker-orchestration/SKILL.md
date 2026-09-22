@@ -104,20 +104,25 @@ here, and none of them may reduce an explicit worker count.
    means a family the coordinator is not. Add a same-family worker only when
    the user asks for it or same-family replication is itself the point (for
    example, two independent runs of one model to measure variance).
-3. **The default flexible pair is one Claude worker plus one Qwen Code worker**
-   (`--agent qwen-code`). If the coordinator is Claude, substitute Codex for the
-   Claude slot, keeping the pair cross-family. Codex is added as a third worker
-   only under rule 2's exceptions or when Qwen Code fails its readiness check.
-4. **Bulk goes to Qwen Code.** For three or more flexible slots, give the
-   additional slots beyond the default pair to Qwen Code — it is unmetered, so
-   extra workers there cost nothing but endpoint concurrency. Broad exploration,
-   file sweeps, repeated independent evaluations of one question, and any
-   fan-out whose width is a judgment call all belong here.
+3. **The default flexible pool is two Qwen Code workers plus one metered
+   judgment worker.** Launch both Qwen workers with `--agent qwen-code`. If the
+   coordinator is Codex, use Claude for the metered slot; if the coordinator is
+   Claude, use Codex. The coordinator is outside this worker count. This 2:1
+   pool is the default when two independent Qwen assignments are useful; never
+   invent duplicate work merely to fill the ratio. When only one useful Qwen
+   assignment exists, use one Qwen worker plus one metered judgment worker when
+   both roles add value.
+4. **Bulk goes to Qwen Code.** Give additional flexible slots beyond the default
+   pool to Qwen Code — it is unmetered, so extra workers there cost nothing but
+   endpoint concurrency. Broad exploration, file sweeps, repeated independent
+   evaluations of one question, and any fan-out whose width is a judgment call
+   all belong here.
 5. **Decompose before Qwen fan-out.** Do not hand one Qwen worker a large,
    cross-repository, or context-heavy assignment merely because its usage is
-   unmetered. In the default mixed-provider workflow, give Claude the planning
-   pass first: establish interfaces and dependencies, then split the work into
-   small independent Qwen tasks. Each Qwen task should normally cover one
+   unmetered. In the default mixed-provider workflow, let the coordinator or
+   the single metered worker establish interfaces and dependencies, then split
+   the work into small independent Qwen tasks. Each Qwen task should normally
+   cover one
    concrete question, one repository or subsystem, and a bounded file set with
    only the verified evidence it needs. Dispatch those microtasks in waves up
    to healthy endpoint concurrency, and have Claude or the coordinator review
@@ -153,8 +158,11 @@ distinction is whether the output is a **fact** or a **decision**.
 - inventorying what exists: routes, indexes, fixtures, feature flags
 
 Ask for citations and an explicit "not found" when it cannot find something.
-Never ask it to choose between options, and never let an uncited claim from it
-into a conclusion.
+Outside a supervised review or comparison topology, do not ask it to choose
+between options, and never let an uncited claim from it into a conclusion. In a
+PR review or explicit model comparison, Qwen may propose candidate findings,
+severity, and a recommended state, but these remain provisional until the
+metered reviewer and coordinator verify the evidence and adjudicate them.
 
 **Claude and Codex — decisions.** Work whose result is a judgment:
 
@@ -165,8 +173,8 @@ into a conclusion.
 - weighing evidence that two workers disagreed about
 
 When a Qwen Code result will be the basis for one of these, let Qwen Code supply
-the evidence and make the call in the coordinator or on a metered worker. Do not
-delegate the call itself.
+the evidence and, where the supervised topology calls for it, a provisional
+recommendation. Keep the final call in the coordinator or on a metered worker.
 
 **Accept the slower wall clock.** A mechanical task finishing later on Qwen Code
 is the preferred trade against spending metered capacity on it. Say so in the
@@ -238,13 +246,13 @@ ownership of a bounded subtask, then have the coordinator integrate the
 results.
 
 When Qwen Code participates in a large task, make decomposition a dependency,
-not an informal suggestion. In the default mixed-provider topology, a Claude
-planning task should produce the task boundaries, required evidence, dependency
-edges, and acceptance criteria before Qwen tasks are dispatched. Keep each Qwen
-prompt self-contained and small; do not make every worker rediscover the whole
-project. If decomposition reveals a genuinely indivisible high-context problem,
-keep that problem with Claude, Codex, or the coordinator and use Qwen only for
-bounded supporting checks.
+not an informal suggestion. In the default mixed-provider topology, the
+coordinator or single metered judgment worker should produce the task boundaries,
+required evidence, dependency edges, and acceptance criteria before Qwen tasks
+are dispatched. Keep each Qwen prompt self-contained and small; do not make
+every worker rediscover the whole project. If decomposition reveals a genuinely
+indivisible high-context problem, keep that problem with the metered worker or
+coordinator and use Qwen only for bounded supporting checks.
 
 Examples: architecture and test audits; unrelated feature investigations;
 documentation and code analysis.

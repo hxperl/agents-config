@@ -123,6 +123,10 @@ must contain:
 - evidence requirements: current-head path/line, trigger, impact, severity, and
   confidence;
 - read-only authority unless the user separately authorized changes;
+- a hard prohibition on mutating the user's current worktree or index: no
+  `git checkout`, `git switch`, `git reset`, `git restore`, or `git stash` in
+  that worktree; exact-head inspection and tests must run from a unique
+  isolated worktree or a `/tmp` tree created with `git archive`;
 - a unique report path outside the repository;
 - the required lifecycle completion protocol from the active orchestration
   system.
@@ -152,7 +156,10 @@ owned by verified follow-up work under the intended delivery order. Treat an
 unclear intent/order as a question, not a defect. Cite current-head path and
 line, trigger, impact, severity, and confidence. Record rejected candidate
 findings and why they are intentional/out-of-scope. Do not modify the repo or
-write to GitHub. Save the full report outside the worktree and complete the
+write to GitHub. Never run `git checkout`, `git switch`, `git reset`,
+`git restore`, or `git stash` in the user's current worktree. Inspect and test
+the exact head only in a unique isolated worktree or a `/tmp` tree produced by
+`git archive`. Save the full report outside the worktree and complete the
 active dispatch exactly once.
 ```
 
@@ -164,19 +171,43 @@ ledger, leaves a required field blank without an explicit `N/A` plus evidence,
 or classifies a deferred item without verifying the follow-up and delivery
 order. Re-dispatch a bounded correction to that same worker before consensus.
 
+Before dispatch, capture the user's current `git status --porcelain=v1` as the
+immutable baseline. Audit it again after every worker completes. If a worker
+changes the current worktree or index, stop that worker, discard its report,
+restore only worker-created changes, and rerun the assignment in isolation.
+Never accept useful-looking findings from a worker that violated this gate.
+
 ## 5. Require cross-family consensus
 
-For each PR, use at least one Claude and one Codex reviewer when both are
-available. After independent reports complete, run a tracked reciprocal review.
+For each PR, use one Claude reviewer and two Qwen Code reviewers by default when
+they are available. Launch Qwen Code with `--agent qwen-code` only; do not pass
+`--model` or `--effort`. All three reviewers independently apply the complete
+intent-aware contract. Qwen findings, severity, and review-state recommendations
+are provisional until a metered reviewer and the coordinator verify them.
+When the coordinator is Codex, the coordinator remains the final technical
+lead: independently verify every material worker claim against the live PR,
+source, and tests, then adjudicate the consensus round. Do not add a Codex
+worker by default. Use one only when the user explicitly asks for it or a Qwen
+slot fails a measured readiness/startup check and an independent replacement is
+still required; report that fallback instead of silently changing the pool.
+After independent reports complete, run one tracked consensus round: Claude
+critiques both Qwen reports, and each Qwen worker fact-checks at least one other
+report's cited evidence and intent ledger. If Claude is unavailable, keep the
+two Qwen reports and require the Codex coordinator to perform a full independent
+review before adjudication; report the degraded topology.
 
-Each cross-reviewer must:
+Every cross-reviewer must:
 
 - read this skill from the absolute path supplied in its task;
 - compare the other report against the live PR body and intent ledger;
-- reject findings that ignore explicit scope or verified follow-up ownership;
 - verify claimed predecessor/successor and merge-order relationships;
-- challenge missing evidence and incorrect severity;
-- return an agreed finding set, author questions, and rejected candidates.
+- challenge missing evidence and unsupported claims.
+
+In that round, each Qwen reviewer fact-checks cited evidence and intent-ledger
+claims and may return provisional candidate changes. The Claude reviewer applies
+the actionable-finding and severity rules to both Qwen reports and returns a
+proposed agreed finding set, author questions, and rejected candidates. The
+Codex coordinator independently verifies that proposal and owns the final set.
 
 Do not pool evidence across different PRs. In a multi-PR request, finish and
 account for every PR separately.
@@ -188,7 +219,9 @@ account for every PR separately.
 - Recover unsubmitted prompts once; do not leave idle workers described as
   “reviewing.”
 - Require valid lifecycle completion and inspect every report artifact.
-- Dispatch the consensus round immediately after both reports for a PR arrive.
+- Dispatch the consensus round immediately after all three reports for a PR
+  arrive. In the documented no-Claude degraded topology, dispatch it after both
+  Qwen reports and the coordinator's independent review are complete.
 - Keep the user updated during ongoing work without waiting for a status query.
 
 ## 7. Decide and submit the GitHub review
