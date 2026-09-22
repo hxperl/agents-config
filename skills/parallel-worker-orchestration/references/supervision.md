@@ -48,10 +48,13 @@ every live Dispatch:
      terminals were still live afterwards until closed by hand with
      `terminal close`.
    - After any wave, account for the terminals as well as the tasks. A settled
-     or failed task says nothing about whether its process exited; check
-     `terminal list` for agent terminals belonging to this run. Close only the
-     ones this run created — leave another session's terminals alone and say
-     they are there instead.
+     or failed task says nothing about whether its process exited. Use the
+     lifecycle-specific action: accepted completion is transferred, retained,
+     or released; a worker that died without completion is stopped before task
+     settlement; ambiguous ownership follows the stop, abandon, or release
+     receipt from the installed guide. Never replace this accounting with a raw
+     terminal close. The 2026-09-16 incident above records why ordering matters;
+     it is not a terminal-close recipe.
 5. **Completion audit:** heartbeat, status, TUI idle, a report file, or a final
    sentence in terminal output is not completion. Require valid `worker_done`.
    If useful work appears complete but the lifecycle message is missing, prompt
@@ -67,7 +70,8 @@ every live Dispatch:
 
 Before each coordinator wait and before the final answer, account for every
 expected Dispatch: working with recent evidence, waiting on a known dependency,
-settled and released/reused, or explicitly blocked/recovered.
+settled and released/reused, explicitly retained at the user's request, or
+blocked and fenced through the installed guide's recovery path.
 
 Maintain the expected Dispatch ID set until synthesis. Before the final answer,
 perform one non-blocking lifecycle check plus `task-list`/`dispatch-show`
@@ -81,9 +85,49 @@ If a worker violates the protocol and sends a long orchestration message,
 consume it privately, do not reproduce it verbatim, and reinforce the protocol
 in any later dispatch to that terminal.
 
-Do not reset an active orchestration run, close worker terminals, delete
-worktrees, or discard worker artifacts merely to tidy up. Preserve them until
-the coordinated result has been delivered or the user requests cleanup.
+### Reclaim settled workers
+
+An accepted `worker_done` ends the Dispatch's work but does not by itself close
+the owned agent terminal. Before acknowledging that Delivery or waiting again,
+choose exactly one lifecycle action from the version-matched orchestration
+guide:
+
+1. Transfer the same terminal to an immediate follow-up Dispatch for the same
+   agent.
+2. If the user explicitly asked to keep the terminal live for debugging, record
+   that exception with the guide's retain operation.
+3. Otherwise release the settled worker. Do this for both succeeded and failed
+   `worker_done` outcomes. Release preserves inspectable output, so keeping a
+   process alive merely to read its transcript is not a valid reason to retain
+   it.
+
+Do not release on a timeout, heartbeat, status, idle prompt, question,
+escalation, or rejected/stale completion. Fence an outcome-unknown worker using
+the guide's stop or abandon recovery first. If release reports pending or
+unknown ownership, follow the receipt's recovery action; never substitute a
+raw terminal close. Never close a coordinator, setup terminal, reused or
+pre-existing terminal, user-owned terminal, or another Run's worker.
+
+Before the final answer, query worker resource accounting for the Run and
+reconcile every Dispatch. There must be no unexplained active, reclaimable,
+release-pending, or release-unknown owned worker. A retained worker is acceptable
+only when the user requested it, and the final report must name that exception.
+
+Worker release and worktree deletion are separate decisions. A Run-created
+read-only worktree is disposable after synthesis. Remove it when all of these
+facts are verified: the selected path belongs to this Run, the output of
+`git status --porcelain=v1` is empty, no live terminal references it, and every
+needed
+report, ignored file, external artifact, or test result is preserved elsewhere.
+If any condition is unverified, retain the worktree and report why. Never remove
+the user's current or pre-existing worktree. Retain and report any writer
+worktree with dirty changes, unmerged commits, or evidence still needed for the
+requested result; never force-remove it merely to make the resource list empty.
+
+Do not reset an active orchestration Run or discard worker artifacts merely to
+tidy up. Preserve evidence until it has been inspected and incorporated into
+the coordinated result, while still applying the mandatory terminal release
+rules above as each Dispatch settles.
 
 ## Transport results without flooding the user
 

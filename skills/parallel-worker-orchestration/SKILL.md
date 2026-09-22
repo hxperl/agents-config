@@ -322,6 +322,15 @@ the other worker's findings before the cross-review phase.
    a user choice would materially change scope, risk, or outcome.
 9. Dispatch dependent review or integration tasks only after their prerequisites
    are complete.
+10. After every accepted `worker_done`, immediately choose the terminal's next
+    owner. Transfer it to an immediate follow-up Dispatch, explicitly retain it
+    only when the user asked to keep it live, or release it before acknowledging
+    the Delivery or waiting again. A completed Task does not prove its terminal
+    was reclaimed.
+11. Before the final answer, inspect the Run's worker resource accounting. Every
+    Dispatch must be active for a stated reason, transferred, explicitly
+    retained by user request, or released. Do not finish with an unexplained
+    reclaimable, release-pending, or release-unknown worker.
 
 ## Synthesize as master
 
