@@ -4,10 +4,21 @@ Loaded when a wave includes a Qwen Code worker. How to launch one through Orca, 
 
 ### Launch Qwen Code workers
 
-Launch Qwen Code through the Orca agent id `qwen-code`, for example
-`orca worktree create --repo <selector> --name <name> --agent qwen-code --json`.
-Read the handle from `result.agentTerminalHandle`. Do not launch it by shelling
-out to the `qwen` binary directly; an untracked terminal cannot be supervised.
+Launch Qwen Code on the **low-level dispatch path** — `worker-start --agent
+qwen-code` fails at `agent_readiness` on this install (see
+`model-and-effort.md` §1.1):
+
+```bash
+orca terminal create --worktree <selector> --title "<role>" --command "qwen --yolo" --json
+# wait until the screen shows "Type your message or @path/to/file"
+orca orchestration task-create --spec "<brief>" --task-title "<title>" --json
+orca orchestration dispatch --task <taskId> --to <handle> --inject --json
+```
+
+The terminal is Orca-managed and the Dispatch carries a capability, so this is
+fully supervised: `worker_done` is accepted and the Dispatch settles
+`completed`. What is *not* supervised is a `qwen` started outside Orca, or a
+brief pushed with bare `terminal send` with no Dispatch behind it.
 Do not pass `--model` or `--effort`; those launch overrides are for Claude and
 Codex, while Qwen Code uses the model configured by its endpoint.
 
@@ -33,10 +44,10 @@ exited worker shows a shell prompt and may print
 exact printed `qwen --resume <session-id>` command with `--enter`, wait for the
 prompt, then send one short instruction describing the remaining work.
 
-Accept a Qwen Code worker as supervised only when Orca returns a live Dispatch
-in `ready` state and later accepts its lifecycle messages. If Orca returns
-`agent_prompt_stalled` while the TUI nevertheless starts working, the terminal
-is advisory and untracked: do not count it toward the required supervised pool
+Accept a Qwen Code worker as supervised only when `dispatch --inject` returned
+a Dispatch and Orca later accepts its lifecycle messages. If a `worker-start`
+attempt returns `agent_readiness`/`agent_prompt_stalled` while the TUI
+nevertheless starts working, the terminal is advisory and untracked: do not count it toward the required supervised pool
 or claim its `worker_done` was accepted. For read-only evaluation, its artifact
 may be used if independently inspected and labeled as untracked. For any writer,
 stop and release the failed Dispatch before replacement so two editors cannot

@@ -318,8 +318,13 @@ the other worker's findings before the cross-review phase.
 ## Dispatch and supervise
 
 1. Create or select the exact number of dedicated fresh worker terminals for
-   the requested or derived agent pool.
-2. Wait until each terminal is ready before injection.
+   the requested or derived agent pool. **The launch path depends on the
+   agent:** `worker-start` for claude; low-level `terminal create` +
+   `dispatch --inject` for codex and qwen-code, whose `worker-start` fails at
+   `agent_readiness` (`references/model-and-effort.md` §1.1).
+2. Wait until each terminal is ready before injection — by reading its screen
+   for the composer, not with `terminal wait --for tui-idle`, which times out
+   on a ready codex TUI.
 3. Dispatch all dependency-free tasks as one parallel wave.
 4. Verify that every worker actually started the assigned task; a created
    terminal, accepted dispatch, `ready`, `running`, heartbeat, or copied task
@@ -392,7 +397,7 @@ rules sound familiar — each holds requirements this file only names.
 | choose agent families for a wave, or check whether a provider has room | `references/quota-and-readiness.md` |
 | launch a Qwen Code worker, or write its brief | `references/qwen-execution.md` |
 | retry a Qwen Code writer after coordinator-verified validation failure | `references/qwen-verifier-loop.md` |
-| launch a fresh metered worker, pick its model or effort, or check which agents exist here | `references/model-and-effort.md` |
+| launch any worker (which path works per agent), pick its model or effort, or check which agents exist here | `references/model-and-effort.md` |
 | dispatch, and for as long as any worker is live | `references/supervision.md` |
 | set up cross-review, or review a pull request | `references/review-topologies.md` |
 

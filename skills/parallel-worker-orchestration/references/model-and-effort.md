@@ -18,8 +18,8 @@ Measured 2026-09-16 with `orca account list --json`:
 
 | Agent id | State on this machine |
 |---|---|
-| `claude` | 1 account, active — **the only family that launches here** |
-| `codex` | authenticated and `ok`, but **workers do not start** — see §1.1 |
+| `claude` | 1 account, active — launches through `worker-start` (Orca `1.4.216`+) |
+| `codex` | authenticated and `ok`; **`worker-start` fails, low-level dispatch works** — see §1.1 |
 | `qwen-code` | self-hosted endpoint; no account entry by design — see `quota-and-readiness.md` |
 | `gemini`, `opencode-go`, `kimi`, `antigravity`, `minimax`, `grok` | present in `rateLimits`, all `unavailable` |
 | `cursor` | **not in `rateLimits` at all** |
@@ -32,28 +32,51 @@ agent is configured. Never route work to a family on the strength of a help
 string — check `orca account list --json` for the wave, and if the user asks
 for an unavailable family, say so and stop rather than substituting one.
 
-### 1.1 Codex workers do not start on this install
+### 1.1 Which launch path works for which agent
 
-Measured 2026-09-29 against Orca `1.4.215`. Four `worker-start --agent codex`
-attempts — `gpt-6-astra` and `gpt-6-sol`, `high` and `low`, and one launched
-with no `--model` at all — every one failed at stage `agent_readiness` with
-`timeout`, or sat at `start_unknown` and never settled. Every worker that
-succeeded that day was `agent=claude`.
+`worker-start` fails at stage `agent_readiness` with `timeout` for **codex and
+qwen-code** even though their TUIs come up and sit at the composer. The same
+Orca build delivers to those TUIs fine through `dispatch --inject`, so launch
+them on the low-level path. Measured 2026-09-29:
 
-It is not the model, the effort, or the quota: `codex exec` answers normally
-from the same shell, so auth and the model are healthy. Only Orca's TUI launch
-path is broken.
+| Agent | `worker-start` on `1.4.215` | `worker-start` on `1.4.216` | Low-level dispatch on `1.4.216` |
+|---|---|---|---|
+| `claude` | `turn_start_unobserved`, brief never landed | **ready → `worker_done` → `completed`** | not needed |
+| `codex` | `agent_readiness` timeout | `agent_readiness` timeout | **`worker_done` → `completed`** |
+| `qwen-code` | `agent_readiness` timeout | `agent_readiness` timeout | **`worker_done` → `completed`** |
 
-**The failure is not free.** The process does start and call the model, so the
-token meter climbs; Orca simply never observes the turn begin, reclaims the
-worker, and nothing is produced. One such worker was found still holding a
-terminal seven hours after it was dispatched. So when a Codex launch fails,
-`worker-stop` it rather than leaving it for later.
+A longer `--timeout-ms` does not help (180 s failed the same way), and neither
+does reusing an already-live codex terminal with `--terminal` — the readiness
+gate itself never passes. Downgrading does not help either: `1.4.215` fails
+codex and qwen identically and also breaks claude.
 
-Until this is fixed: say the family is unavailable and run the wave on Claude,
-or drive Codex through `codex exec` with the brief on stdin — which works, but
-gives up heartbeats and `worker_done`, so the coordinator collects the result
-itself. Do not wait on a Codex dispatch id that never reported a start.
+**Low-level dispatch** — the "custom topology" path in the Orca orchestration
+docs, verified end to end for codex and qwen-code:
+
+```bash
+orca terminal create --worktree <selector> --title "<role>" \
+  --command "codex --dangerously-bypass-approvals-and-sandbox" --json   # or: --command "qwen --yolo"
+# handle = result.terminal.handle; read the screen until the composer shows
+#   codex: "› Ask Codex to do anything"   qwen: "Type your message or @path/to/file"
+orca orchestration task-create --spec "<brief>" --task-title "<title>" --json   # --task-title, not --title
+orca orchestration dispatch --task <taskId> --to <handle> --inject --json
+```
+
+The injected preamble carries the dispatch capability, so the worker's
+`worker_done` is accepted and the Dispatch settles `completed`; `worker-show`,
+`worker-release`, and mail all work as usual.
+
+- **Do not gate on `terminal wait --for tui-idle`.** The docs list it as the
+  step before `dispatch`, but for codex it timed out at 90 s on a TUI that was
+  already at its composer. Read the screen with `orca terminal read` instead.
+- `--model` / `--effort` are `worker-start` flags. On this path the model comes
+  from the command line you pass (`codex -m <id>`) or the agent's own config.
+- **A failed `worker-start` is not free.** The process starts and can call the
+  model while Orca never observes the turn. `worker-stop` / `worker-release` it
+  immediately rather than leaving the terminal behind — one was found still
+  holding a terminal seven hours after dispatch.
+- Re-measure after an Orca upgrade: if `worker-start --agent codex` returns
+  `ready`, prefer it again and update this table.
 
 ---
 
