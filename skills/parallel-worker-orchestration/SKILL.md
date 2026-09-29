@@ -7,12 +7,10 @@ description: >-
   asks to run work in parallel, delegate to multiple workers or agents, have
   Claude, Codex, and Qwen Code independently investigate or implement
   something, make agents review or debate each other's results, or use a
-  master/coordinator to reach a consensus. Trigger on requests such as "병렬로
-  시켜", "워커들에게 맡겨", "Claude와 Codex에게 시켜", "코덱스 3개와 클로드
-  2개", "qwen한테 시켜", "큐원 워커", "서브 워커로 진행", "마스터가
-  종합해", or "서로 검토시켜". Do not trigger for
-  an ordinary single-agent task merely because it could theoretically be
-  parallelized.
+  master/coordinator to reach a consensus — in any language, and whether the
+  ask names the families and counts explicitly or only says "split this up".
+  Do not trigger for an ordinary single-agent task merely because it could
+  theoretically be parallelized.
 ---
 
 
@@ -181,14 +179,20 @@ is the preferred trade against spending metered capacity on it. Say so in the
 progress report rather than silently upgrading the task to a metered provider.
 
 **Then pick the model and the effort, on the same axis.** Family is only half
-the routing decision. A fresh Claude or Codex worker takes `--model` and `--effort`,
-and omitting them is a choice rather than a neutral default: the local defaults
-are `gpt-5.6-sol` at **high** for Codex and Opus 5 at **medium** for Claude, so
-a bare launch is the flagship in one family and mid-effort in the other. Send
-fact-collection to Haiku 4.5 or Luna at `low`, ordinary implementation and
-single-dimension review to Sonnet 5 or Terra at `medium`, and adversarial
-review or adjudication to Opus 5 or Sol at `high`/`xhigh`. Fable 5.1 is a
-narrative specialist, not the reviewer, however capable it is.
+the routing decision. A fresh Claude or Codex worker takes `--model` and
+`--effort`, and omitting them is a choice rather than a neutral default: the
+local defaults are `gpt-6-sol` at **high** for Codex and Opus 5 at **medium**
+for Claude. Send fact-collection to Haiku 4.5 or `gpt-6-luna` at `low`,
+ordinary implementation and single-dimension review to Sonnet 5 or `gpt-6-sol`
+at `medium`, and adversarial review or adjudication to Opus 5.5 or
+`gpt-6-astra` at `high`/`xhigh`. Fable 5.1 is a narrative specialist, not the
+reviewer, however capable it is.
+
+**Do not carry the GPT-5.6 tier names forward.** In that line Sol *was* the
+flagship; in GPT-6 the frontier tier is **Astra** and Sol is the coding
+workhorse, so routing adjudication to `gpt-6-sol` out of habit quietly
+downgrades the wave's most important slot. Cross-family pairing is now
+Opus 5.5 ↔ Astra, Sonnet 5 ↔ Sol, Haiku 4.5 ↔ Luna.
 
 Qwen Code is the exception: launch it with `--agent qwen-code` only. Never pass
 `--model` or `--effort` to a Qwen Code worker; its endpoint owns the model
@@ -201,7 +205,7 @@ no Cursor provider at all even though `--model`'s help text names one. Confirm
 with `orca account list --json` per wave, and report an unavailable family
 rather than substituting another.
 
-`references/model-and-effort.md` has the per-model tiers and prices, both
+`references/model-and-effort.md` has the per-model tiers, both
 effort ladders, the routing table, and the misrouting traps — including why
 raising effort does not fix a vague brief.
 
