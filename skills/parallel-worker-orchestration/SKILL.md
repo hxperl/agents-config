@@ -181,18 +181,18 @@ progress report rather than silently upgrading the task to a metered provider.
 **Then pick the model and the effort, on the same axis.** Family is only half
 the routing decision. A fresh Claude or Codex worker takes `--model` and
 `--effort`, and omitting them is a choice rather than a neutral default: the
-local defaults are `gpt-6-sol` at **high** for Codex and Opus 5 at **medium**
+local defaults are `gpt-6.1-sol` at **high** for Codex and Opus 5 at **medium**
 for Claude. Send fact-collection to Haiku 4.5 or `gpt-6-luna` at `low`,
-ordinary implementation and single-dimension review to Sonnet 5 or `gpt-6-sol`
-at `medium`, and adversarial review or adjudication to Opus 5.5 or
-`gpt-6-astra` at `high`/`xhigh`. Fable 5.1 is a narrative specialist, not the
-reviewer, however capable it is.
+ordinary implementation and single-dimension review to Sonnet 5 or
+`gpt-6.1-sol` at `medium`, and adversarial review or adjudication to Opus 5.5
+or `gpt-6.1-sol` at `high`/`xhigh`. Fable 5.1 is a narrative specialist, not
+the reviewer, however capable it is.
 
-**Do not carry the GPT-5.6 tier names forward.** In that line Sol *was* the
-flagship; in GPT-6 the frontier tier is **Astra** and Sol is the coding
-workhorse, so routing adjudication to `gpt-6-sol` out of habit quietly
-downgrades the wave's most important slot. Cross-family pairing is now
-Opus 5.5 ↔ Astra, Sonnet 5 ↔ Sol, Haiku 4.5 ↔ Luna.
+**Codex judgment slots run on `gpt-6.1-sol`, not Astra.** The user's call
+(2026-10-01): where Astra would be chosen, 6.1 Sol spends far fewer tokens for
+the result it returns. Raise Sol's effort (`xhigh`) before reaching for
+Astra; use `gpt-6-astra` only when the user asks for it. `gpt-6-sol` is now
+served as "Previous generation" — do not pick it.
 
 Qwen Code is the exception: launch it with `--agent qwen-code` only. Never pass
 `--model` or `--effort` to a Qwen Code worker; its endpoint owns the model
@@ -319,9 +319,12 @@ the other worker's findings before the cross-review phase.
 
 1. Create or select the exact number of dedicated fresh worker terminals for
    the requested or derived agent pool. **The launch path depends on the
-   agent:** `worker-start` for claude; low-level `terminal create` +
-   `dispatch --inject` for codex and qwen-code, whose `worker-start` fails at
-   `agent_readiness` (`references/model-and-effort.md` §1.1).
+   Orca version** (`orca --version`; `references/model-and-effort.md` §1.1):
+   from `1.4.217` Orca's release notes say Codex `worker-start` works again,
+   so use `worker-start` for claude and codex; below that, codex needs the
+   low-level `terminal create` + `dispatch --inject` path. qwen-code stays on
+   the low-level path until a `worker-start` on `1.4.217`+ is measured
+   `ready` here.
 2. Wait until each terminal is ready before injection — by reading its screen
    for the composer, not with `terminal wait --for tui-idle`, which times out
    on a ready codex TUI.

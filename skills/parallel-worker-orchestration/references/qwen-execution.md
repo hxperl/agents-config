@@ -5,8 +5,10 @@ Loaded when a wave includes a Qwen Code worker. How to launch one through Orca, 
 ### Launch Qwen Code workers
 
 Launch Qwen Code on the **low-level dispatch path** — `worker-start --agent
-qwen-code` fails at `agent_readiness` on this install (see
-`model-and-effort.md` §1.1):
+qwen-code` failed at `agent_readiness` through Orca `1.4.216`. Orca `1.4.217`
+fixed the same failure for Codex; whether it also fixed Qwen Code has not been
+measured, so try one `worker-start` on `1.4.217`+ and keep this path until that
+returns `ready` (see `model-and-effort.md` §1.1):
 
 ```bash
 orca terminal create --worktree <selector> --title "<role>" --command "qwen --yolo" --json

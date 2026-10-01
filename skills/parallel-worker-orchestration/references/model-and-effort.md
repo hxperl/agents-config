@@ -19,7 +19,7 @@ Measured 2026-09-16 with `orca account list --json`:
 | Agent id | State on this machine |
 |---|---|
 | `claude` | 1 account, active — launches through `worker-start` (Orca `1.4.216`+) |
-| `codex` | authenticated and `ok`; **`worker-start` fails, low-level dispatch works** — see §1.1 |
+| `codex` | authenticated and `ok`; `worker-start` fixed in Orca `1.4.217` per release notes, low-level dispatch on older builds — see §1.1 |
 | `qwen-code` | self-hosted endpoint; no account entry by design — see `quota-and-readiness.md` |
 | `gemini`, `opencode-go`, `kimi`, `antigravity`, `minimax`, `grok` | present in `rateLimits`, all `unavailable` |
 | `cursor` | **not in `rateLimits` at all** |
@@ -78,6 +78,26 @@ The injected preamble carries the dispatch capability, so the worker's
 - Re-measure after an Orca upgrade: if `worker-start --agent codex` returns
   `ready`, prefer it again and update this table.
 
+**Orca `1.4.217` fixes the Codex side (release notes, 2026-09-29).** The cause
+was Orca waiting for a welcome-screen label that Codex `0.158` removed; Orca
+now treats Codex's empty composer as ready, and starting with `--model` or
+`--effort` no longer hangs (stablyai/orca#23475, #23765). `1.4.218` adds a wait
+for Codex `0.157`'s startup screen before the brief is typed (#23745) and a
+readiness lane for agents with no other rest signal (#23598).
+
+- **Codex:** on `1.4.217`+, launch with `worker-start --agent codex --model
+  <id> --effort <level>`, which also gives heartbeats and `worker_done`
+  without a hand-built Dispatch. Still check the startup proof
+  (`supervision.md`) — the release notes are the evidence until a run here
+  confirms it; if it fails, fall back to the low-level path above.
+- **Qwen Code:** the notes do not name it. #23598 may cover it, but nothing has
+  been measured. Try one `worker-start --agent qwen-code` on `1.4.217`+; keep
+  the low-level path until that returns `ready`, then update this section.
+- Each Codex tab now runs its own server by default (#23900, #23929), so
+  closing one worker's tab no longer drops the others; many tabs use more
+  memory. `ORCA_CODEX_ISOLATE=0` or the Settings → Agents switch restores the
+  shared server.
+
 ---
 
 ## 2. The flags, and the constraints the runtime enforces
@@ -114,16 +134,21 @@ Price tables also drift silently and then read as fact. The one real cost axis
 is metered vs unmetered: Qwen Code is free of both, which is why SKILL.md sends
 mechanical work there.
 
-Measured 2026-09-29 from `~/.codex/models_cache.json` (served by OpenAI,
-`fetched_at 2026-09-29T04:23Z`, codex-cli 0.158.0). That file is the
+Measured 2026-10-01 from `~/.codex/models_cache.json` (codex-cli 0.159.2). That file is the
 authoritative list on this machine; read it again rather than trusting this
 table after a CLI update.
 
 | Model id | Served description | Reach for it when |
 |---|---|---|
-| `gpt-6-astra` | "Frontier intelligence for the most demanding work." | Adjudication, adversarial review, whole-subsystem analysis |
-| `gpt-6-sol` | "Workhorse model for coding and everyday work." | Ordinary implementation, single-dimension review |
+| `gpt-6.1-sol` | "Latest workhorse model for coding and everyday work." | **Default Codex model** — implementation, review, and adjudication |
+| `gpt-6-astra` | "Frontier intelligence for the most demanding work." | Only when the user asks for it |
 | `gpt-6-luna` | "Fast and affordable model for easier tasks." | Mechanical, checkable work — when Qwen Code is not usable (§6) |
+| `gpt-6-sol` | "Previous generation workhorse model." | Do not pick — superseded by 6.1 Sol |
+
+**Why 6.1 Sol and not Astra for judgment:** the user's call on 2026-10-01 —
+where Astra would be chosen, 6.1 Sol spends far fewer tokens for the work it
+returns. Escalate within Sol first (`xhigh`, then `max`); name Astra only on
+request.
 
 The GPT-5.6 line is still served (`gpt-5.6-sol`, `-terra`, `-luna`) but labelled
 "Older", and `gpt-5.5` as "Legacy". There is no reason to pick one deliberately.
@@ -131,19 +156,19 @@ The GPT-5.6 line is still served (`gpt-5.6-sol`, `-terra`, `-luna`) but labelled
 
 **The tier names do not mean what they meant.** In GPT-5.6, Sol was the
 flagship and Terra the mid-tier. In GPT-6 the frontier tier is **Astra**, Sol
-has moved down to workhorse, and there is no Terra. Any routing rule, prompt,
-or habit that reads "Sol = the best one" now silently downgrades the slot it
-was protecting.
+has moved down to workhorse, and there is no Terra. Choosing 6.1 Sol for a
+judgment slot is fine when it is the deliberate choice above; it is a mistake
+only when someone picks Sol believing it is still the frontier tier.
 
-**Local default here:** `~/.codex/config.toml` sets `model = "gpt-6-sol"` and
-`model_reasoning_effort = "high"`. So a bare `worker-start --agent codex`
-launches **the workhorse at high effort** — not the frontier model. Omitting
-the flags is neither the cheap path nor the strongest one.
+**Local default here:** `~/.codex/config.toml` sets `model = "gpt-6.1-sol"`
+and `model_reasoning_effort = "high"`. So a bare `worker-start --agent codex`
+launches 6.1 Sol at high effort. Pass `--effort` deliberately: `medium` for
+implementation, `xhigh` for adjudication.
 
 **Effort ladder:** `low | medium | high | xhigh | max | ultra`, taken from each
 model's `supported_reasoning_levels`. Two things changed from the old note:
 there is no `minimal` level, and `ultra` ("maximum reasoning with automatic
-task delegation") sits above `max` — on Astra and Sol only. **Luna stops at
+task delegation") sits above `max` — on Astra and the Sol models only. **Luna stops at
 `max`**, so an `ultra` brief sent to Luna is coerced down, silently, as §2
 describes. The served default for all three is `medium`.
 
@@ -205,17 +230,18 @@ is two paragraphs and needs all of it.
 |---|---|---|---|
 | Enumerate, count, transcribe, grep a claim, collect `file:line` citations | Qwen Code (unmetered) | endpoint-selected; no CLI override | n/a |
 | Same, but time-boxed or Qwen is unavailable | Claude / Codex | `claude-haiku-4-5-20251001` / `gpt-6-luna` | `low` |
-| Implement against a stated contract; write tests; find where a behaviour lives | Claude / Codex | `claude-sonnet-5` / `gpt-6-sol` | `medium` |
-| Single-dimension review (one checklist over one diff) | Claude / Codex | `claude-sonnet-5` / `gpt-6-sol` | `medium` |
-| Adversarial review; hunt the defect nobody has named | Claude / Codex | `claude-opus-5-5` / `gpt-6-astra` | `high` |
-| Adjudicate a disagreement; reverse an earlier judgment; choose failure semantics or concurrency guarantees | Claude / Codex | `claude-opus-5-5` / `gpt-6-astra` | `xhigh` |
+| Implement against a stated contract; write tests; find where a behaviour lives | Claude / Codex | `claude-sonnet-5` / `gpt-6.1-sol` | `medium` |
+| Single-dimension review (one checklist over one diff) | Claude / Codex | `claude-sonnet-5` / `gpt-6.1-sol` | `medium` |
+| Adversarial review; hunt the defect nobody has named | Claude / Codex | `claude-opus-5-5` / `gpt-6.1-sol` | `high` |
+| Adjudicate a disagreement; reverse an earlier judgment; choose failure semantics or concurrency guarantees | Claude / Codex | `claude-opus-5-5` / `gpt-6.1-sol` | `xhigh` |
 | Long-form prose a person will read end to end | Claude | `claude-fable-5-1` | `high` |
 
-Cross-family review keeps the **tier** comparable on both sides — Opus 5.5
-against Astra, Sonnet 5 against Sol, Haiku 4.5 against Luna. Two reviewers who
-differ in tier as well as family tell you about the tiers, not about the
-question. This is the pairing the GPT-6 rename broke: Opus against Sol used to
-be tier-matched and now is not.
+Cross-family review pairs Opus 5.5 with `gpt-6.1-sol` at `xhigh` in the
+judgment slots. That is a deliberate trade of a tier-matched pair (Opus ↔ Astra)
+for token use, chosen by the user. When a disagreement between the two looks
+like a capability gap rather than a real difference of judgment, re-run the
+Codex side once at `max` before treating it as settled; offer Astra to the user
+only if that still leaves it open.
 
 ---
 
@@ -224,8 +250,7 @@ be tier-matched and now is not.
 - **"Most capable" is not one ordering.** Fable 5.1 is the top of the Claude
   line and a *narrative* specialist. Sending it a diff to review spends the
   most expensive model on the thing it is least aimed at; Opus 5.5 is the
-  reviewer. The same trap now has a Codex half: Sol is the name people
-  remember, Astra is the frontier tier.
+  reviewer.
 - **Do not raise effort to compensate for a vague brief.** A worker thinking
   harder about an underspecified task returns a more confident wrong answer.
   Tighten scope, evidence requirements and acceptance criteria first; raise
