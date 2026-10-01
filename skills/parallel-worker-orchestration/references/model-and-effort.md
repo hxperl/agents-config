@@ -19,7 +19,7 @@ Measured 2026-09-16 with `orca account list --json`:
 | Agent id | State on this machine |
 |---|---|
 | `claude` | 1 account, active — launches through `worker-start` (Orca `1.4.216`+) |
-| `codex` | authenticated and `ok`; `worker-start` fixed in Orca `1.4.217` per release notes, low-level dispatch on older builds — see §1.1 |
+| `codex` | authenticated and `ok`; `worker-start` works on Orca `1.4.218` (measured 2026-10-01), low-level dispatch only on builds below `1.4.217` — see §1.1 |
 | `qwen-code` | self-hosted endpoint; no account entry by design — see `quota-and-readiness.md` |
 | `gemini`, `opencode-go`, `kimi`, `antigravity`, `minimax`, `grok` | present in `rateLimits`, all `unavailable` |
 | `cursor` | **not in `rateLimits` at all** |
@@ -85,14 +85,17 @@ now treats Codex's empty composer as ready, and starting with `--model` or
 for Codex `0.157`'s startup screen before the brief is typed (#23745) and a
 readiness lane for agents with no other rest signal (#23598).
 
-- **Codex:** on `1.4.217`+, launch with `worker-start --agent codex --model
-  <id> --effort <level>`, which also gives heartbeats and `worker_done`
-  without a hand-built Dispatch. Still check the startup proof
-  (`supervision.md`) — the release notes are the evidence until a run here
-  confirms it; if it fails, fall back to the low-level path above.
-- **Qwen Code:** the notes do not name it. #23598 may cover it, but nothing has
-  been measured. Try one `worker-start --agent qwen-code` on `1.4.217`+; keep
-  the low-level path until that returns `ready`, then update this section.
+**Measured on `1.4.218` (2026-10-01), so this is now the default path:**
+
+| Agent | `worker-start` result |
+|---|---|
+| `codex` (`--model gpt-6.1-sol --effort xhigh`) | `state: ready`, `turnStart: observed`; worked through the brief |
+| `claude` (`--model claude-opus-5-5 --effort xhigh`) | `state: ready`, `turnStart: observed` |
+| `qwen-code` (no model/effort) | `state: ready`, `turnStart: unsupported` — Orca cannot observe Qwen's turn start, so read the screen for the startup proof; it was working within 40 s |
+
+- Still do the startup proof (`supervision.md`) for every worker.
+- The low-level path above remains the fallback for Orca below `1.4.217`, or
+  if a `worker-start` ever fails readiness again.
 - Each Codex tab now runs its own server by default (#23900, #23929), so
   closing one worker's tab no longer drops the others; many tabs use more
   memory. `ORCA_CODEX_ISOLATE=0` or the Settings → Agents switch restores the

@@ -320,11 +320,9 @@ the other worker's findings before the cross-review phase.
 1. Create or select the exact number of dedicated fresh worker terminals for
    the requested or derived agent pool. **The launch path depends on the
    Orca version** (`orca --version`; `references/model-and-effort.md` §1.1):
-   from `1.4.217` Orca's release notes say Codex `worker-start` works again,
-   so use `worker-start` for claude and codex; below that, codex needs the
-   low-level `terminal create` + `dispatch --inject` path. qwen-code stays on
-   the low-level path until a `worker-start` on `1.4.217`+ is measured
-   `ready` here.
+   on `1.4.218`+ use `worker-start` for **all three** — claude, codex and
+   qwen-code (measured 2026-10-01). Only below `1.4.217` does codex/qwen need
+   the low-level `terminal create` + `dispatch --inject` path.
 2. Wait until each terminal is ready before injection — by reading its screen
    for the composer, not with `terminal wait --for tui-idle`, which times out
    on a ready codex TUI.
