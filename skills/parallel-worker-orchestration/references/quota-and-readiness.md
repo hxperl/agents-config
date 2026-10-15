@@ -17,9 +17,22 @@ constrained/critical thresholds to it — those thresholds describe metered
 provider quotas that do not exist here. Qwen Code is capacity-bound, not
 quota-bound: its limit is the concurrency of the serving endpoint, so treat it
 as healthy whenever a readiness check succeeds and as unavailable when the check
-fails. Verify readiness before a wave with a single `GET <baseUrl>/models`
-against the endpoint in `~/.qwen/settings.json`; a `200` with the configured
-model id present means healthy. Never print the API key.
+fails.
+
+**The readiness check is the dispatch itself.** `orca ... --agent qwen-code`
+already knows the endpoint and its credentials; the call either reaches `ready`
+or returns an error, and that result is the signal. Do not probe the endpoint
+separately before a wave — you were going to start the worker anyway, so a
+separate probe buys nothing and costs a round trip.
+
+Never open `~/.qwen/settings.json`. It holds the endpoint's API key in
+plaintext under `env`, so reading it to recover a base URL risks printing a
+secret, and the base URL is not yours to supply — orca owns it. If a dispatch
+fails, report the error orca returned; do not go looking for the endpoint.
+
+A guessed URL is worse than no check. Probing `localhost:8080` because the real
+endpoint was unknown returns `000` and reads as "Qwen is down", which silently
+removes the default provider for mechanical work from the whole wave.
 
 Because Qwen Code carries no quota cost, it is the **default** for mechanical
 work, not a fallback for when a metered provider is constrained. Metered
