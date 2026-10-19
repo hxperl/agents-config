@@ -2,6 +2,13 @@
 
 Loaded by `parallel-worker-orchestration` before a flexible dispatch wave. The routing decision itself lives in SKILL.md; this file holds the arithmetic, the thresholds, and the Qwen Code readiness check.
 
+> **2026-10-19:** Qwen Code is parked (see SKILL.md). The Qwen sections below
+> apply only after the user brings it back. Until then, mechanical work goes to
+> Gemini 3.8 Flash on Antigravity, which **is** metered: read its
+> `Gemini Models` buckets in `rateLimits.antigravity` like any other provider.
+> The separate `Gemini 4 Argon` bucket is weekly-only; one research task used
+> 14% of it. Treat Argon as constrained by default.
+
 ### Balance provider quotas before flexible dispatch
 
 Before choosing agent families for a new wave, run `orca account list --json`
@@ -66,7 +73,7 @@ Apply quota information only after task requirements:
 4. If one provider is constrained and the other is healthy, reserve the
    constrained provider for the highest-value independent review or synthesis
    role and send bulk exploration to the healthier provider.
-4b. Mechanical work goes to Qwen Code regardless of how healthy the metered
+4b. Mechanical work goes to Gemini 3.8 Flash (Qwen Code once restored) regardless of how healthy the metered
    providers look. Headroom decides how to split work that needs judgment; it
    does not promote fact-collection back onto a metered provider.
 5. Never reduce required verification, silently change model family, or claim

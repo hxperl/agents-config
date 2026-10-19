@@ -41,15 +41,13 @@ and include that path as a mandatory prerequisite in every Claude, Codex, or
 other worker task; never assume a fresh worker will discover the skill
 implicitly.
 
-For every PR, assign one Claude worker and two Qwen Code workers by default to
-independently review the verified base-to-head diff. Launch Qwen Code with
-`--agent qwen-code` only, without `--model` or `--effort`. Qwen findings,
-severity, and review-state recommendations are provisional. When the coordinator
-is Codex, keep final adjudication with the coordinator, who must independently
-verify every material claim against the live PR, source, and tests. Do not add a
-Codex worker by default. Use one only when the user explicitly requests it or a
-Qwen slot fails a measured readiness/startup check and an independent replacement
-is still required; report that fallback. Each task must also
+For every PR, assign one Claude worker and one Codex worker (`gpt-6.1-sol`,
+until 2026-11-16) by default to independently review the verified base-to-head
+diff. Add a Gemini 3.8 Flash worker when the PR needs bulk evidence (call-site
+counts, citation sweeps); its output is evidence, not findings. Add Gemini 4
+Argon High only as the tiebreaker (see the consensus round). After 2026-11-16,
+use Claude plus Argon High for pre-prod or design-critical PRs, and Claude
+alone plus Flash evidence otherwise. Each task must also
 embed the intent-aware core contract: read the entire live PR body, commits,
 comments/reviews, linked tickets and predecessor/successor/stacked PRs; produce
 the complete intent ledger before findings; do not classify verified follow-up
@@ -57,11 +55,11 @@ scope as a current blocker; turn unclear intent or merge order into an author
 question.
 
 Reject reports that omit the intent ledger or fail to verify declared deferrals.
-In the default topology, run one tracked consensus round after all three valid
-reports arrive. The Claude worker critiques both Qwen reports; each Qwen worker
-fact-checks at least one other report's cited evidence and intent ledger. The
-coordinator independently adjudicates every material disagreement and may
-publish only the verified in-scope finding set. If Claude is unavailable, keep
-the two Qwen reviews and require the Codex coordinator to complete a full
-independent review before starting adjudication; report this degraded topology.
+In the default topology, run one tracked consensus round after both valid
+reports arrive: each reviewer critiques the other's report and fact-checks its
+cited evidence and intent ledger. The coordinator independently adjudicates
+every material disagreement and may publish only the verified in-scope finding
+set. If the reviewers still disagree on a material point, add Gemini 4 Argon
+High as tiebreaker after checking its weekly bucket. If one reviewer family is unavailable, the coordinator completes a
+full independent review in its place; report this degraded topology.
 Preserve the per-PR pool and consensus round separately in a multi-PR request.

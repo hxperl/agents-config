@@ -5,7 +5,7 @@ description: >-
   workers, including any requested mix such as three Codex workers and two
   Claude workers, then collect and synthesize their results. Use when the user
   asks to run work in parallel, delegate to multiple workers or agents, have
-  Claude, Codex, and Qwen Code independently investigate or implement
+  Claude, Codex, and Gemini independently investigate or implement
   something, make agents review or debate each other's results, or use a
   master/coordinator to reach a consensus — in any language, and whether the
   ask names the families and counts explicitly or only says "split this up".
@@ -95,56 +95,72 @@ They are independent of which agent is coordinating; determine the coordinator's
 own family first, then apply them in order. Rule 1 outranks every other rule
 here, and none of them may reduce an explicit worker count.
 
+The worker families on this machine (user decision, 2026-10-19, after measuring
+Argon's quota):
+
+- **Claude** (`--agent claude`) and **Codex** (`--agent codex`, `gpt-6.1-sol`)
+  are the default judgment pair. The Codex subscription ends **2026-11-16**.
+  From that date Codex is unavailable: say so instead of launching it.
+- **Gemini 3.8 Flash** (`--agent antigravity --model
+  gemini-3.8-flash-<low|medium|high>`) does fact collection, replacing Qwen.
+  It draws on Antigravity's 5-hour-refreshed Gemini bucket.
+- **Gemini 4 Argon High** (`--agent antigravity --model gemini-4-argon-high`)
+  is a **scarce tiebreaker**. Its Pro quota is weekly-only with no 5-hour
+  refresh, and one research task consumed 14% of it (2026-10-19). Use it only:
+  - when Claude and Codex disagree on a point that matters;
+  - after 2026-11-16, as the second judgment voice on high-stakes reviews
+    (pre-prod, design decisions). Otherwise, judgment is Claude alone plus
+    Flash evidence.
+- **Qwen Code is parked** (2026-10-19) while its workstation is being upgraded.
+  Launch it only when the user names it. When the user brings it back, restore
+  `references/qwen-execution.md` and `qwen-verifier-loop.md` from
+  `~/.claude/skills-backup/qwen-parked-20261019/` (also in this repo's git history before the 2026-10-19 commit), re-measure it, and decide
+  with the user how it shares fact collection with Flash.
+- Antigravity also serves Claude 5.5 models and `gpt-oss-120b`. Never pick
+  them: the Claude models duplicate our Claude family, and `gpt-oss-120b` is
+  not GPT-6.1 Sol and does not replace Codex.
+
 1. **An explicit request wins outright.** A named family or count is preserved
    exactly. If a requested family is unavailable, say so and stop; never
    substitute a different one.
 2. **Never spawn the coordinator's own family for diversity alone.** Diversity
    means a family the coordinator is not. Add a same-family worker only when
-   the user asks for it or same-family replication is itself the point (for
-   example, two independent runs of one model to measure variance).
-3. **The default flexible pool is two Qwen Code workers plus one metered
-   judgment worker.** Launch both Qwen workers with `--agent qwen-code`. If the
-   coordinator is Codex, use Claude for the metered slot; if the coordinator is
-   Claude, use Codex. The coordinator is outside this worker count. This 2:1
-   pool is the default when two independent Qwen assignments are useful; never
-   invent duplicate work merely to fill the ratio. When only one useful Qwen
-   assignment exists, use one Qwen worker plus one metered judgment worker when
-   both roles add value.
-4. **Bulk goes to Qwen Code.** Give additional flexible slots beyond the default
-   pool to Qwen Code — it is unmetered, so extra workers there cost nothing but
-   endpoint concurrency. Broad exploration, file sweeps, repeated independent
-   evaluations of one question, and any fan-out whose width is a judgment call
-   all belong here.
-5. **Decompose before Qwen fan-out.** Do not hand one Qwen worker a large,
-   cross-repository, or context-heavy assignment merely because its usage is
-   unmetered. In the default mixed-provider workflow, let the coordinator or
-   the single metered worker establish interfaces and dependencies, then split
-   the work into small independent Qwen tasks. Each Qwen task should normally
-   cover one
-   concrete question, one repository or subsystem, and a bounded file set with
-   only the verified evidence it needs. Dispatch those microtasks in waves up
-   to healthy endpoint concurrency, and have Claude or the coordinator review
-   their outputs before integration. Unmetered usage permits width and retries;
-   it does not justify oversized prompts or duplicated work.
-6. **Reserve the metered families for judgment.** Claude and Codex slots go to
-   the highest-value role in the wave — independent review of another worker's
-   output, adjudicating a disagreement, or the synthesis input the coordinator
-   will lean on hardest. Do not spend a metered slot on work rule 4 covers.
-7. **Escalate rather than widen on a tie.** When two workers disagree and the
-   answer matters, add one metered worker as an independent tiebreaker instead
-   of adding more Qwen Code workers. Unmetered width does not settle a
-   disagreement that is about judgment.
-8. **Degrade explicitly, never silently.** If Qwen Code fails readiness, report
-   it and fall back to a metered family for that slot. If a metered family is
-   critical, queue its slots and tell the user the reset timing. Never quietly
-   swap one family for another or drop a slot.
+   the user asks for it or same-family replication is itself the point. When
+   the coordinator is Claude, the judgment slot is Codex (until 2026-11-16),
+   and the coordinator's own synthesis is the second view.
+3. **The default flexible pool is one Claude worker plus one Codex worker for
+   judgment, plus Gemini 3.8 Flash workers for any separable fact
+   collection.** After 2026-11-16 it is one Claude worker plus Flash. The coordinator is outside this count. Never invent duplicate
+   work merely to fill a slot.
+4. **Bulk goes to Gemini 3.8 Flash.** Additional flexible slots for broad
+   exploration, file sweeps, and fan-out whose width is a judgment call go to
+   Flash. It is fast and has high throughput, but it is still metered against
+   the Antigravity Gemini bucket: check that bucket per wave.
+5. **Decompose before Flash fan-out.** Give each Flash worker one concrete
+   question, one repository or subsystem, a bounded file set, and only the
+   verified evidence it needs. The coordinator or a judgment worker sets the
+   boundaries and acceptance criteria first and reviews Flash output before it
+   is integrated.
+6. **Reserve the judgment families for judgment.** Claude, Codex and Argon
+   slots go to the highest-value role in the wave — independent review,
+   adjudication, or the synthesis input the coordinator leans on hardest. Do
+   not spend one on work rule 4 covers.
+7. **Escalate rather than widen on a tie.** When Claude and Codex disagree and
+   the answer matters, add one Gemini 4 Argon High worker as the independent
+   tiebreaker. Check the Argon bucket first; if it is low, re-run the weaker
+   side once at a higher effort and put the remaining split to the user. More
+   Flash workers do not settle a disagreement about judgment.
+8. **Degrade explicitly, never silently.** If a family fails readiness or its
+   bucket is critical, report it, then fall back to another family for that
+   slot and say so. Never quietly swap a family or drop a slot.
 
 ### Route by the kind of work
 
 Decide what kind of answer the task needs before choosing a provider. The
 distinction is whether the output is a **fact** or a **decision**.
 
-**Qwen Code — facts, by default.** Work whose result can be checked by looking:
+**Gemini 3.8 Flash — facts, by default.** Work whose result can be checked by
+looking:
 
 - enumerating or counting call sites, and reconciling two workers' differing counts
 - grepping a specific claim to confirm or refute it
@@ -156,13 +172,10 @@ distinction is whether the output is a **fact** or a **decision**.
 - inventorying what exists: routes, indexes, fixtures, feature flags
 
 Ask for citations and an explicit "not found" when it cannot find something.
-Outside a supervised review or comparison topology, do not ask it to choose
-between options, and never let an uncited claim from it into a conclusion. In a
-PR review or explicit model comparison, Qwen may propose candidate findings,
-severity, and a recommended state, but these remain provisional until the
-metered reviewer and coordinator verify the evidence and adjudicate them.
+Do not ask it to choose between options, and never let an uncited claim from it
+into a conclusion.
 
-**Claude and Codex — decisions.** Work whose result is a judgment:
+**Claude and Codex (Argon as tiebreaker) — decisions.** Work whose result is a judgment:
 
 - adjudicating a design trade-off, or two safe-but-different architectures
 - deciding whether to reverse an earlier judgment
@@ -170,48 +183,37 @@ metered reviewer and coordinator verify the evidence and adjudicate them.
 - reviewing whether a change is correct in intent rather than in form
 - weighing evidence that two workers disagreed about
 
-When a Qwen Code result will be the basis for one of these, let Qwen Code supply
-the evidence and, where the supervised topology calls for it, a provisional
-recommendation. Keep the final call in the coordinator or on a metered worker.
-
-**Accept the slower wall clock.** A mechanical task finishing later on Qwen Code
-is the preferred trade against spending metered capacity on it. Say so in the
-progress report rather than silently upgrading the task to a metered provider.
+When a Flash result is the basis for one of these, Flash supplies the evidence
+and the call stays with the coordinator or a judgment worker.
 
 **Then pick the model and the effort, on the same axis.** Family is only half
-the routing decision. A fresh Claude or Codex worker takes `--model` and
-`--effort`, and omitting them is a choice rather than a neutral default: the
-local defaults are `gpt-6.1-sol` at **high** for Codex and Opus 5 at **medium**
-for Claude. Send fact-collection to Haiku 4.5 or `gpt-6-luna` at `low`,
-ordinary implementation and single-dimension review to Sonnet 5 or
-`gpt-6.1-sol` at `medium`, and adversarial review or adjudication to Opus 5.5
-or `gpt-6.1-sol` at `high`/`xhigh`. Fable 5.1 is a narrative specialist, not
-the reviewer, however capable it is.
+the routing decision; omitting `--model`/`--effort` is a choice, not a neutral
+default. Fact collection: Gemini 3.8 Flash `low`/`medium` (`high` for careful
+tracing). Flash scores ~20% on Terminal-Bench 4.0, so keep it on narrow,
+checkable tasks, never open-ended agentic work. Ordinary implementation and
+single-dimension review: Sonnet 5.5 or `gpt-6.1-sol` at `medium`. Adversarial
+review or adjudication: Opus 5.5 at `high`/`xhigh` and `gpt-6.1-sol` at
+`high`/`xhigh`; tiebreak with `gemini-4-argon-high`. Fable 5.1 is a narrative
+specialist, not the reviewer.
 
-**Codex judgment slots run on `gpt-6.1-sol`, not Astra.** The user's call
-(2026-10-01): where Astra would be chosen, 6.1 Sol spends far fewer tokens for
-the result it returns. Raise Sol's effort (`xhigh`) before reaching for
-Astra; use `gpt-6-astra` only when the user asks for it. `gpt-6-sol` is now
-served as "Previous generation" — do not pick it.
+**Codex slots run on `gpt-6.1-sol`, not Astra** (user, 2026-10-01). Raise Sol's
+effort before reaching for Astra; use `gpt-6-astra` only on request.
 
-Qwen Code is the exception: launch it with `--agent qwen-code` only. Never pass
-`--model` or `--effort` to a Qwen Code worker; its endpoint owns the model
-selection.
-
-**Availability is measured, never inferred from a help string.** Only `claude`,
-`codex` and `qwen-code` are usable on this machine; `gemini`, `opencode-go`,
-`kimi`, `antigravity`, `minimax` and `grok` report `unavailable`, and there is
-no Cursor provider at all even though `--model`'s help text names one. Confirm
-with `orca account list --json` per wave, and report an unavailable family
+**Availability is measured, never inferred from a help string.** Usable here:
+`claude`, `antigravity` (verified end to end through `worker-start` on
+2026-10-19 with `gemini-3.8-flash-medium`), and `codex` until 2026-11-16. List
+Antigravity's models with `agy models`. Confirm per wave with `orca account
+list --json`: Antigravity reports separate buckets for Gemini models, Gemini 4
+Argon, and Claude/GPT models. Read the Gemini bucket before a Flash fan-out,
+and the Argon bucket before any Argon slot. Report an unavailable family
 rather than substituting another.
 
-`references/model-and-effort.md` has the per-model tiers, both
-effort ladders, the routing table, and the misrouting traps — including why
-raising effort does not fix a vague brief.
+`references/model-and-effort.md` has the Claude and Codex per-model tiers,
+effort ladders, and misrouting traps. Its Qwen rows apply only while Qwen is parked-and-restored.
 
-**Prefer Qwen Code when output shape is strict.** It is a good fit for bounded
-templates, fixed section order, and hard length limits. State every format
-constraint explicitly and validate the result before using it.
+**State output constraints explicitly.** For bounded templates, fixed section
+order, or hard length limits, spell out every constraint in the brief and
+validate the result before using it.
 
 **Allow negative results.** Tell the worker that finding nothing is valid and
 require it to report `not found` instead of widening the search or inventing a
@@ -249,14 +251,11 @@ Use for a task with clearly independent parts. Give each worker exclusive
 ownership of a bounded subtask, then have the coordinator integrate the
 results.
 
-When Qwen Code participates in a large task, make decomposition a dependency,
-not an informal suggestion. In the default mixed-provider topology, the
-coordinator or single metered judgment worker should produce the task boundaries,
-required evidence, dependency edges, and acceptance criteria before Qwen tasks
-are dispatched. Keep each Qwen prompt self-contained and small; do not make
-every worker rediscover the whole project. If decomposition reveals a genuinely
-indivisible high-context problem, keep that problem with the metered worker or
-coordinator and use Qwen only for bounded supporting checks.
+When Flash workers participate in a large task, make decomposition a dependency,
+not an informal suggestion: the coordinator or a judgment worker produces the
+task boundaries, required evidence, dependency edges, and acceptance criteria
+first. Keep each Flash prompt self-contained and small. A genuinely indivisible
+high-context problem stays with a judgment worker or the coordinator.
 
 Examples: architecture and test audits; unrelated feature investigations;
 documentation and code analysis.
@@ -276,14 +275,6 @@ Use when the user authorizes code changes. Partition writers by non-overlapping
 module or file ownership and assign remaining workers to read-only research,
 testing, or review roles. A reviewer examines the relevant diff and validation
 evidence only after its writer dependencies complete.
-
-For a Qwen Code writer, start with one normal implementation attempt. If the
-coordinator then verifies that the authorized change fails a deterministic
-project test, lint, build, or other acceptance command, read and apply
-`references/qwen-verifier-loop.md`. This repair loop is Qwen-only and
-sequential within one worktree; it does not apply to Claude or Codex, to
-read-only fact collection, or to judgment and review tasks. Do not start the
-loop for infrastructure failures or failures unrelated to the worker's diff.
 
 Do not let multiple workers concurrently edit the same files in one worktree.
 For genuinely independent implementations, use isolated Orca worktrees and
@@ -320,9 +311,10 @@ the other worker's findings before the cross-review phase.
 1. Create or select the exact number of dedicated fresh worker terminals for
    the requested or derived agent pool. **The launch path depends on the
    Orca version** (`orca --version`; `references/model-and-effort.md` §1.1):
-   on `1.4.218`+ use `worker-start` for **all three** — claude, codex and
-   qwen-code (measured 2026-10-01). Only below `1.4.217` does codex/qwen need
-   the low-level `terminal create` + `dispatch --inject` path.
+   on `1.4.218`+ use `worker-start` for claude, codex and antigravity
+   (antigravity measured 2026-10-19). Only below `1.4.217` does codex need
+   the low-level `terminal create` + `dispatch --inject` path. After a Codex
+   `worker-start`, read the screen for its update menu (enaible/AGENTS.md).
 2. Wait until each terminal is ready before injection — by reading its screen
    for the composer, not with `terminal wait --for tui-idle`, which times out
    on a ready codex TUI.
@@ -396,8 +388,6 @@ rules sound familiar — each holds requirements this file only names.
 | Before you | Read |
 |---|---|
 | choose agent families for a wave, or check whether a provider has room | `references/quota-and-readiness.md` |
-| launch a Qwen Code worker, or write its brief | `references/qwen-execution.md` |
-| retry a Qwen Code writer after coordinator-verified validation failure | `references/qwen-verifier-loop.md` |
 | launch any worker (which path works per agent), pick its model or effort, or check which agents exist here | `references/model-and-effort.md` |
 | dispatch, and for as long as any worker is live | `references/supervision.md` |
 | set up cross-review, or review a pull request | `references/review-topologies.md` |
