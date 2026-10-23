@@ -324,7 +324,11 @@ the other worker's findings before the cross-review phase.
    text alone is not proof of useful work.
 5. Wait on orchestration deliveries using the rolling coordinator loop from the
    installed guide while also checking worker progress as described in
-   `references/supervision.md`.
+   `references/supervision.md`. A watcher that only waits for `worker_done` or
+   polls outcomes misses stuck workers (2026-10-23: Codex sat on `Selected
+   model is at capacity` while reporting `working`/`live`). Every rolling check
+   reads each live worker's transcript or screen, and the background monitor
+   also emits on inactivity and on provider-error text.
 6. Treat a wait timeout as "no new message", not as worker failure.
 7. Accept completion only through a valid `worker_done` from the worker that
    owns the active dispatch.

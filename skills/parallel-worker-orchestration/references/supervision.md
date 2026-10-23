@@ -22,12 +22,33 @@ every live Dispatch:
    workers at useful intervals, normally every 2-5 minutes or after each wait
    timeout. Use `task-list`, `worker-show`, and bounded `worker-read`; do not
    flood the transcript or repeatedly inject the task.
+   - **A completion-only watcher is not a rolling check.** A background
+     `check --wait` on `worker_done`, or a monitor that only polls
+     `worker-list` for `succeeded`/`failed`, stays silent while a worker is
+     stuck. Every rolling check must also read each live worker's transcript
+     or screen with bounded `worker-read`. Measured on 2026-10-23: a Codex
+     worker stopped on `Selected model is at capacity. Please try a different
+     model`. `worker-list` kept reporting `in_progress`, `working`, `live`,
+     heartbeats from the other workers kept arriving, and only the user's
+     manual look at the terminal caught it.
+   - Make the background monitor emit on stalls as well as on completion: the
+     newest transcript timestamp older than about 6 minutes, or provider-error
+     text on screen (`at capacity`, `try a different model`, rate-limit or
+     quota errors, an error banner). Heartbeats do not reset this check,
+     because a heartbeat comes from the agent harness, not from task progress.
 3. **Stall detection:** distinguish slow work from a stalled worker. A worker is
    not stalled merely because it is quiet. Investigate when two consecutive
    checkpoints show no task-specific progress or cursor advance, the terminal
    remains at startup or an idle prompt, the process exited, or output repeats
    the same failure. Call this `unconfirmed inactivity`, not failure. Check the
    terminal and Dispatch state before deciding on recovery.
+   - A provider-side refusal shown on screen (model at capacity, rate limit,
+     quota exhausted) is a stall even though liveness stays `live` and the
+     outcome stays `in_progress`. Report it to the user at once, naming the
+     worker, the dispatch, and the exact text. Then send one short
+     `keep going` follow-up to that dispatch, as the Recovery step below allows.
+     If the refusal returns, follow the quota-and-readiness fallback for that
+     slot and report the substitution.
 4. **Recovery:** if input was not consumed or two checkpoints show unconfirmed
    inactivity, send one concise structured follow-up to that Dispatch when the
    worker can still receive messages. Retry only after `worker-show` proves
