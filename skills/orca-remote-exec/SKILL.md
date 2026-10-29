@@ -18,6 +18,22 @@ reading, deciding, writing reports and posting to GitHub run on this machine.
 Only commands travel to the remote host, and only their output tail and exit
 code come back. Everything below exists to keep that boundary safe.
 
+## When it pays off
+
+Send work remote only when execution is the heavy part. Reading a diff,
+grepping and parsing run where the agents run and do not move.
+
+- **Yes — Flutter/Dart (ma-client):** `pub get`, analyze, the format gate and
+  test suites (especially goldens) are memory-bound; the local machine caps
+  them at two concurrent runs, the remote host ran three at once without
+  contention.
+- **Usually no — light Python (ma-qa-agent):** `validate`, `unittest` and
+  `knowledge capture` finish in seconds. Each remote call adds a few seconds
+  of terminal setup and polling, so run them locally in an isolated `/tmp`
+  tree unless the user asked for remote or the local machine is under load.
+  Measured on ma-qa-agent #13 (2026-10-29): the review time was spent reading a
+  497k-line diff locally; remote execution saved nothing.
+
 Read `references/hosts.md` for the paired hosts, their paths and toolchains
 before the first command in a session.
 
@@ -30,6 +46,7 @@ Call the scripts by absolute path: `~/.agents/skills/orca-remote-exec/scripts/`.
 | `remote-prep.sh <name> <ref> <sha> [--pub-get]` | Base tree: fetches `<ref>` into `refs/mm/<name>` of the remote checkout, exits 3 unless it is `<sha>`, unpacks `git archive <sha>` into `/tmp/mm-trees/<name>`, optionally runs `fvm flutter pub get` there. |
 | `remote-prep.sh <name> --clone-from <base>` | Private copy of a base tree (APFS clone, resolved dependencies included) for a worker that edits files. |
 | `remote-prep.sh <name> --remove` | Deletes the tree and `refs/mm/<name>`. |
+| `remote-prep.sh --mirror <owner/repo>` | Creates or refreshes a bare clone at `/tmp/mm-repos/<repo>.git` for a repository the host has no checkout of; then set `MM_GIT_DIR` to it for the base-tree and `--remove` calls. The mirror is a reusable cache and may stay. |
 | `remote-run.sh [-C dir] [-n lines] [-t sec] -- '<command>'` | Runs the command in the remote login shell, waits, prints the last `-n` lines, exits with the remote exit code. Full log: `~/mm-logs/<id>.log` on the remote host. Opens and closes its own Orca terminal. |
 
 `<ref>` is `pull/<N>/head` or `heads/<branch>`. Environment: `MM_ENV` (default
@@ -49,7 +66,10 @@ modifies files.
    interference.
 3. **Anything that writes files runs in a clone**: reverse-patch (mutation)
    checks, golden regeneration, build_runner, gen-l10n regeneration diffs,
-   `dart format` without `-o none`. The worker makes it with
+   `dart format` without `-o none`. A tree from `git archive` has no `.git`:
+   tests that call git, and counting new files with `git status`, need
+   `git init -q && git add -A && git commit -qm base` first — in a clone only.
+   The worker makes it with
    `remote-prep.sh <PR>-<agent> --clone-from <PR>` and removes it itself.
 4. Sharing a tree shares evidence, not conclusions — independence is kept by
    the briefs, not by separate trees.
