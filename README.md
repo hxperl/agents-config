@@ -8,7 +8,6 @@ Version-controlled, reusable configuration for local coding agents.
 - `machine/claude/CLAUDE.md`: machine-wide Claude operating rules
 - `skills/parallel-worker-orchestration`: supervised mixed-provider orchestration
 - `skills/review-pr-with-intent`: intent-aware pull-request review
-- `skills/orca-remote-exec`: run heavy execution on a paired remote Orca host while judgment stays local
 
 ## Local targets
 
@@ -18,7 +17,6 @@ Version-controlled, reusable configuration for local coding agents.
 | `machine/claude/CLAUDE.md` | `~/.claude/CLAUDE.md` |
 | `skills/parallel-worker-orchestration` | `~/.agents/skills/parallel-worker-orchestration` |
 | `skills/review-pr-with-intent` | `~/.codex/skills/review-pr-with-intent` |
-| `skills/orca-remote-exec` | `~/.agents/skills/orca-remote-exec` (and a `~/.claude/skills/orca-remote-exec` symlink) |
 
 Copy or symlink these paths deliberately. This repository does not include an
 automatic installer because replacing machine-wide rules should remain an
