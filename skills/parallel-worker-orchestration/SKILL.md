@@ -395,6 +395,7 @@ rules sound familiar — each holds requirements this file only names.
 | launch any worker (which path works per agent), pick its model or effort, or check which agents exist here | `references/model-and-effort.md` |
 | dispatch, and for as long as any worker is live | `references/supervision.md` |
 | set up cross-review, or review a pull request | `references/review-topologies.md` |
+| put builds, tests or other heavy execution on a paired remote host (judgment stays here) | the `orca-remote-exec` skill (`~/.agents/skills/orca-remote-exec/SKILL.md`) |
 
 `references/supervision.md` is not optional for a run that dispatches anything: it
 carries the startup-proof, stall-detection, completion-audit, and message-size rules,
