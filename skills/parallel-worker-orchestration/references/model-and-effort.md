@@ -142,6 +142,9 @@ the ids. Run it at the start of each wave that has an OpenCode slot:
    - families that duplicate the pool: `claude-*` (our Claude family). Drop
      `gpt-*` too while Codex is live; after 2026-11-16 a `gpt-*` id may
      fill a non-Claude slot.
+   - `qwen*` when the wave already has a Qwen Code worker: the self-hosted
+     Qwen Code runs `qwen3.8-27b` (`~/.qwen/settings.json`), the same Qwen
+     family, so the pair adds no diversity. Count Qwen once per wave.
 3. Pick by role:
    - **Judgment voice:** a flagship id (`pro`/`max`/an unsuffixed top
      version, never `flash`/`lite`/`mini`) from a family other than the
