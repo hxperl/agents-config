@@ -46,8 +46,9 @@ until 2026-11-16) by default to independently review the verified base-to-head
 diff. Add a Gemini 3.8 Flash worker when the PR needs bulk evidence (call-site
 counts, citation sweeps); its output is evidence, not findings. Add Gemini 4
 Argon High only as the tiebreaker (see the consensus round). After 2026-11-16,
-use Claude plus Argon High for pre-prod or design-critical PRs, and Claude
-alone plus Flash evidence otherwise. Each task must also
+the second reviewer is the OpenCode judgment voice (`--agent opencode`,
+model chosen per wave in `model-and-effort.md` §3b); add Argon High for pre-prod or design-critical
+PRs. On company repositories never use an OpenCode free model. Each task must also
 embed the intent-aware core contract: read the entire live PR body, commits,
 comments/reviews, linked tickets and predecessor/successor/stacked PRs; produce
 the complete intent ledger before findings; do not classify verified follow-up

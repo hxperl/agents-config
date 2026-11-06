@@ -107,10 +107,11 @@ Argon's quota):
 - **Gemini 4 Argon High** (`--agent antigravity --model gemini-4-argon-high`)
   is a **scarce tiebreaker**. Its Pro quota is weekly-only with no 5-hour
   refresh, and one research task consumed 14% of it (2026-10-19). Use it only:
-  - when Claude and Codex disagree on a point that matters;
-  - after 2026-11-16, as the second judgment voice on high-stakes reviews
-    (pre-prod, design decisions). Otherwise, judgment is Claude alone plus
-    Flash evidence.
+  - when the two judgment voices (Claude and Codex, from 2026-11-16 Claude
+    and the OpenCode judgment voice) disagree on a point that matters;
+  - after 2026-11-16, as an added judgment voice on high-stakes reviews
+    (pre-prod, design decisions). Otherwise, judgment is Claude plus the
+    OpenCode judgment voice, with Flash evidence.
 - **Qwen Code is parked** (2026-10-19) while its workstation is being upgraded.
   Launch it only when the user names it. When the user brings it back, restore
   `references/qwen-execution.md` and `qwen-verifier-loop.md` from
@@ -119,6 +120,33 @@ Argon's quota):
 - Antigravity also serves Claude 5.5 models and `gpt-oss-120b`. Never pick
   them: the Claude models duplicate our Claude family, and `gpt-oss-120b` is
   not GPT-6.1 Sol and does not replace Codex.
+- **OpenCode Go** (`--agent opencode --model opencode-go/<id>`, Go Plus
+  subscription, user decision 2026-11-06) adds families that are not Google,
+  Anthropic or OpenAI. Its catalog changes often, so **this skill names roles,
+  not model ids**: pick the id per wave with the selection procedure in
+  `references/model-and-effort.md` §3b and record it in the topology
+  announcement. Roles:
+  - **OpenCode judgment voice** — the non-Claude judgment slot. From
+    2026-11-16 it takes Codex's place in the default judgment pair; before
+    then, use it when Codex or Claude lacks headroom. Until its review quality
+    is measured here, give it the same brief as Claude and compare.
+  - **OpenCode fact worker** — fact collection when Gemini Flash is unavailable
+    or its bucket is exhausted, under the same Flash rules: narrow, cited,
+    `not found` allowed, no judgment.
+  - **OpenCode Argon** — a second Argon pool for the tiebreaker slot when the
+    Antigravity Argon bucket is low. The tiebreaker-only rule still applies.
+  - In Orca, `--effort` is unsupported for OpenCode, and `--model` needs an
+    existing worktree (`--worktree current` or a selector), not `new-*`.
+  - Models the Go workspace serves only under the Global region (hosted
+    outside the EU/US; DeepSeek on 2026-11-06) are blocked on company projects
+    until company policy allows them.
+- **Free models are banned on company projects** (user, 2026-11-06). That
+  means every `*-free` id, `big-pickle`, every `opencode/*` Zen free model and
+  any `*-contributor*` model. Several of them retain or train on prompts. A
+  company project is any repository whose `origin` is under the GitHub org
+  `themoin`, or any path under `~/Documents/development/moin` or an Orca
+  workspace of those repositories; when unsure, treat it as company. On
+  personal projects free models are allowed.
 
 1. **An explicit request wins outright.** A named family or count is preserved
    exactly. If a requested family is unavailable, say so and stop; never
@@ -126,11 +154,12 @@ Argon's quota):
 2. **Never spawn the coordinator's own family for diversity alone.** Diversity
    means a family the coordinator is not. Add a same-family worker only when
    the user asks for it or same-family replication is itself the point. When
-   the coordinator is Claude, the judgment slot is Codex (until 2026-11-16),
+   the coordinator is Claude, the judgment slot is Codex (until 2026-11-16, then the OpenCode judgment voice),
    and the coordinator's own synthesis is the second view.
 3. **The default flexible pool is one Claude worker plus one Codex worker for
    judgment, plus Gemini 3.8 Flash workers for any separable fact
-   collection.** After 2026-11-16 it is one Claude worker plus Flash. The coordinator is outside this count. Never invent duplicate
+   collection.** After 2026-11-16 it is one Claude worker plus one OpenCode judgment voice,
+   plus Flash. The coordinator is outside this count. Never invent duplicate
    work merely to fill a slot.
 4. **Bulk goes to Gemini 3.8 Flash.** Additional flexible slots for broad
    exploration, file sweeps, and fan-out whose width is a judgment call go to
@@ -145,7 +174,7 @@ Argon's quota):
    slots go to the highest-value role in the wave — independent review,
    adjudication, or the synthesis input the coordinator leans on hardest. Do
    not spend one on work rule 4 covers.
-7. **Escalate rather than widen on a tie.** When Claude and Codex disagree and
+7. **Escalate rather than widen on a tie.** When the two judgment voices disagree and
    the answer matters, add one Gemini 4 Argon High worker as the independent
    tiebreaker. Check the Argon bucket first; if it is low, re-run the weaker
    side once at a higher effort and put the remaining split to the user. More
@@ -201,11 +230,14 @@ effort before reaching for Astra; use `gpt-6-astra` only on request.
 
 **Availability is measured, never inferred from a help string.** Usable here:
 `claude`, `antigravity` (verified end to end through `worker-start` on
-2026-10-19 with `gemini-3.8-flash-medium`), and `codex` until 2026-11-16. List
-Antigravity's models with `agy models`. Confirm per wave with `orca account
+2026-10-19 with `gemini-3.8-flash-medium`), `opencode` (verified end to end
+2026-11-06 through `worker-start`; model ids per wave, §3b), and `codex` until 2026-11-16.
+List Antigravity's models with `agy models` and OpenCode's with
+`opencode models`. Confirm per wave with `orca account
 list --json`: Antigravity reports separate buckets for Gemini models, Gemini 4
 Argon, and Claude/GPT models. Read the Gemini bucket before a Flash fan-out,
-and the Argon bucket before any Argon slot. Report an unavailable family
+and the Argon bucket before any Argon slot. Read `rateLimits.opencodeGo`
+(`session` 5h, `weekly`, `monthly`) before any OpenCode slot. Report an unavailable family
 rather than substituting another.
 
 `references/model-and-effort.md` has the Claude and Codex per-model tiers,
@@ -311,8 +343,8 @@ the other worker's findings before the cross-review phase.
 1. Create or select the exact number of dedicated fresh worker terminals for
    the requested or derived agent pool. **The launch path depends on the
    Orca version** (`orca --version`; `references/model-and-effort.md` §1.1):
-   on `1.4.218`+ use `worker-start` for claude, codex and antigravity
-   (antigravity measured 2026-10-19). Only below `1.4.217` does codex need
+   on `1.4.218`+ use `worker-start` for claude, codex, antigravity and
+   opencode (antigravity measured 2026-10-19, opencode 2026-11-06 on 1.4.249). Only below `1.4.217` does codex need
    the low-level `terminal create` + `dispatch --inject` path. After a Codex
    `worker-start`, read the screen for its update menu (enaible/AGENTS.md).
 2. Wait until each terminal is ready before injection — by reading its screen

@@ -20,7 +20,8 @@ Families decided by the user on 2026-10-19:
 | `antigravity` | facts via Gemini 3.8 Flash; scarce tiebreaker via Gemini 4 Argon High | Google AI Pro, annual plan. `agy` 1.4.2 at `~/.local/bin/agy`. `worker-start --agent antigravity --model gemini-3.8-flash-medium` reached `ready`, and `worker_done` settled `succeeded` (2026-10-19, Orca 1.4.224) |
 | `codex` | judgment (default pair) | `gpt-6.1-sol`; **subscription cancelled, usable until 2026-11-16**. From that date, report Codex as unavailable instead of launching it |
 | `qwen-code` | parked (workstation upgrade in progress) | Launch only when the user names it. Restore notes: SKILL.md |
-| `gemini`, `opencode-go`, `kimi`, `minimax`, `grok` | — | present in `rateLimits`, `unavailable` |
+| `opencode` | OpenCode judgment voice (replaces Codex from 2026-11-16); fact fallback; second Argon pool — ids per wave, §3b | OpenCode Go Plus (user, 2026-11-06). `opencode` 2.0.25 at `/opt/homebrew/bin/opencode`. `worker-start --agent opencode --model opencode-go/kimi-k3.1-pro --worktree current` delivered `worker_done` `succeeded` (2026-11-06, Orca 1.4.249). Quota: `rateLimits.opencodeGo` |
+| `gemini`, `kimi`, `minimax`, `grok` (direct CLIs) | — | present in `rateLimits`, `unavailable` — use those models through `opencode` instead |
 | `cursor` | — | not in `rateLimits` at all |
 
 Help strings and Orca group addresses (`@cursor`, `@gemini`, …) are names, not
@@ -30,7 +31,11 @@ substituting another.
 
 ### 1.1 Launch paths
 
-On Orca `1.4.218`+ use `worker-start` for claude, codex and antigravity.
+On Orca `1.4.218`+ use `worker-start` for claude, codex, antigravity and opencode.
+
+- **OpenCode:** pass `--model opencode-go/<id>` with `--worktree current` or an
+  existing worktree selector. Orca rejects OpenCode model selection on a new
+  worktree, and `--effort` is unsupported.
 
 - **Codex:** after `worker-start`, read the screen. If the "Update available"
   menu is up, pick Skip (Down, Enter) and send the brief with
@@ -123,6 +128,54 @@ Antigravity also serves `claude-opus-5-5-*`, `claude-sonnet-5-5-*` and
 
 ---
 
+## 3b. OpenCode Go — choose the model per wave
+
+The Go catalog changes often, so this file fixes the **selection rule**, not
+the ids. Run it at the start of each wave that has an OpenCode slot:
+
+1. `opencode models` — list the current ids. Use `opencode-go/*` (the paid Go
+   plan). `opencode/*` is Zen; on company projects use none of it.
+2. Drop what the project forbids:
+   - free and data-sharing ids (see **Free models** below) on company projects;
+   - Global-region models on company projects. They fail with "hosted outside
+     Europe and the United States" until the workspace selects Global.
+   - families that duplicate the pool: `claude-*` (our Claude family). Drop
+     `gpt-*` too while Codex is live; after 2026-11-16 a `gpt-*` id may
+     fill a non-Claude slot.
+3. Pick by role:
+   - **Judgment voice:** a flagship id (`pro`/`max`/an unsuffixed top
+     version, never `flash`/`lite`/`mini`) from a family other than the
+     coordinator's. Prefer the family that answered best in earlier waves of
+     this session. Otherwise prefer Kimi, then GLM, then Qwen, then MiniMax.
+     Within a family take the highest version.
+   - **Fact worker:** a `flash`/`lite` id. Prefer the GLM or Qwen line.
+   - **Argon pool:** the `gemini-*-argon*` id.
+4. If the id has not answered in this session, smoke it with
+   `opencode run -m <id> "Reply with exactly: OK"`. On an error, take the next
+   candidate. Never treat a listed id as available on the strength of the
+   listing alone.
+5. Name the chosen id in the topology announcement and the final report.
+
+Snapshot only, not a contract (2026-11-06): `worker-start` with
+`opencode-go/kimi-k3.1-pro` delivered `worker_done`. `kimi-k3.1-pro`, `kimi-k3`,
+`gemini-4-argon`, `qwen3.8-max`, `glm-5.3`, `minimax-m3`, `qwen3.8-flash` and
+`glm-5.3-flash` answered `opencode run`. `deepseek-*` needed the Global region.
+
+**Quota.** Go meters each model in dollars: 5-hour = 20%, weekly = 50%,
+monthly = 100% of the monthly limit (opencode.ai/docs/go). Read
+`rateLimits.opencodeGo` `session`/`weekly`/`monthly` before each OpenCode
+slot. A dozen one-line smoke calls used 2% of the 5-hour window.
+
+**Free models.** Every `*-free` id, `big-pickle`, the `opencode/*` Zen free
+models and `*-contributor*` models are free for a limited time, and several
+of them retain prompts or use them for training (opencode.ai/docs/zen). They
+are **banned on company projects**: a repository whose `origin` is under the
+GitHub org `themoin`, or a path under `~/Documents/development/moin` or an
+Orca workspace of those repositories. When unsure, treat it as company. On
+personal projects they are allowed (user, 2026-11-06).
+
+---
+
 ## 4. Claude
 
 | Model id | Reach for it when |
@@ -170,15 +223,16 @@ Task size is a poor guide.
 
 | Kind of work | Default | Fallback |
 |---|---|---|
-| Enumerate, count, transcribe, grep a claim, collect `file:line` citations | `gemini-3.8-flash-low`/`-medium` | Haiku 4.5 `low` |
+| Enumerate, count, transcribe, grep a claim, collect `file:line` citations | `gemini-3.8-flash-low`/`-medium` | OpenCode fact worker (§3b), then Haiku 4.5 `low` |
 | Careful fact tracing (call chains, data flow) | `gemini-3.8-flash-high` | `claude-sonnet-5-5` `medium` |
 | Implement against a stated contract; write tests | `claude-sonnet-5-5` / `gpt-6.1-sol` `medium` | — |
 | Single-dimension review (one checklist over one diff) | `claude-sonnet-5-5` / `gpt-6.1-sol` `medium` | — |
-| Adversarial review; hunt the defect nobody has named | `claude-opus-5-5` `high` **and** `gpt-6.1-sol` `high` | after 2026-11-16: Opus + `gemini-4-argon-high` on high-stakes reviews only |
-| Adjudicate a disagreement; failure semantics, concurrency | `claude-opus-5-5` / `gpt-6.1-sol` `xhigh` | tiebreaker `gemini-4-argon-high` |
+| Adversarial review; hunt the defect nobody has named | `claude-opus-5-5` `high` **and** `gpt-6.1-sol` `high` | after 2026-11-16: Opus + OpenCode judgment voice (§3b); add `gemini-4-argon-high` on high-stakes reviews |
+| Adjudicate a disagreement; failure semantics, concurrency | `claude-opus-5-5` / `gpt-6.1-sol` `xhigh` (after 2026-11-16 the OpenCode judgment voice) | tiebreaker `gemini-4-argon-high`, then the OpenCode Argon pool |
 | Long-form prose a person will read | `claude-fable-5-1` `high` | — |
 
-The judgment pair is Opus 5.5 ↔ `gpt-6.1-sol`. When they split on a point that
+The judgment pair is Opus 5.5 ↔ `gpt-6.1-sol`, and from 2026-11-16 Opus 5.5 ↔
+the OpenCode judgment voice (§3b). When they split on a point that
 matters, check the Argon bucket and add `gemini-4-argon-high` as tiebreaker. If
 the bucket is low, re-run the weaker side once at a higher effort, then put the
 remaining split to the user.
@@ -197,6 +251,7 @@ remaining split to the user.
   to finish in few turns, and never let an uncited Flash claim into a
   conclusion.
 - **Do not pick Claude or GPT models inside Antigravity** (§3).
+- **No free models on company projects** (§3b), whatever the quota looks like.
 - **Argon is weekly-only and slow.** Never use it for fact work or ordinary
   review. Check its bucket before each slot.
 - **A smaller model at high effort is not a bigger model.**

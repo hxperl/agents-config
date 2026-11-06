@@ -8,6 +8,13 @@ Loaded by `parallel-worker-orchestration` before a flexible dispatch wave. The r
 > `Gemini Models` buckets in `rateLimits.antigravity` like any other provider.
 > The separate `Gemini 4 Argon` bucket is weekly-only; one research task used
 > 14% of it. Treat Argon as constrained by default.
+>
+> **2026-11-06:** OpenCode Go (`rateLimits.opencodeGo`) is metered like any
+> other provider: compute limiting headroom from `session` (5 h), `weekly` and
+> `monthly`. Its Argon id is a separate pool from the Antigravity Argon
+> bucket. When the Antigravity `Gemini Models` bucket is exhausted, fact work
+> moves to the OpenCode fact worker (model chosen per wave,
+> `model-and-effort.md` §3b) rather than onto Claude or Codex.
 
 ### Balance provider quotas before flexible dispatch
 
@@ -73,7 +80,7 @@ Apply quota information only after task requirements:
 4. If one provider is constrained and the other is healthy, reserve the
    constrained provider for the highest-value independent review or synthesis
    role and send bulk exploration to the healthier provider.
-4b. Mechanical work goes to Gemini 3.8 Flash (Qwen Code once restored) regardless of how healthy the metered
+4b. Mechanical work goes to Gemini 3.8 Flash (the OpenCode fact worker when its bucket is out; Qwen Code once restored) regardless of how healthy the metered
    providers look. Headroom decides how to split work that needs judgment; it
    does not promote fact-collection back onto a metered provider.
 5. Never reduce required verification, silently change model family, or claim
