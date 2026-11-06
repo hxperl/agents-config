@@ -48,7 +48,8 @@ counts, citation sweeps); its output is evidence, not findings. Add Gemini 4
 Argon High only as the tiebreaker (see the consensus round). After 2026-11-16,
 the second reviewer is the OpenCode judgment voice (`--agent opencode`,
 model chosen per wave in `model-and-effort.md` §3b); add Argon High for pre-prod or design-critical
-PRs. On company repositories never use an OpenCode free model. Each task must also
+PRs. Only when the project's agent data policy allows OpenCode; otherwise
+Claude plus the coordinator's synthesis, with Argon High on high-stakes PRs. Each task must also
 embed the intent-aware core contract: read the entire live PR body, commits,
 comments/reviews, linked tickets and predecessor/successor/stacked PRs; produce
 the complete intent ledger before findings; do not classify verified follow-up

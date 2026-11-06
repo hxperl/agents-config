@@ -31,12 +31,53 @@ manually create terminals, tasks, or dispatches.
    prompt.
 4. If Orca cannot run, report the exact error and stop. Do not silently switch
    coordination systems or guess unsupported commands.
-5. Announce the selected topology and worker assignments briefly, then start.
-   Do not ask for confirmation when the user's request already authorizes
-   parallel workers.
+5. Resolve the project's agent data policy (next section) before choosing any
+   family. A family the policy excludes is unavailable for this run.
+6. Announce the selected topology and worker assignments briefly, including
+   one line that states the data policy in force and where it came from, then
+   start. Do not ask for confirmation when the user's request already
+   authorizes parallel workers.
 
 CLI flags change between Orca versions. Do not copy commands from this skill or
 memory. Derive every command from the version-matched orchestration guide.
+
+## Resolve the project's agent data policy
+
+Which providers may receive this project's code is the user's decision, made
+once per project and recorded in the project's rules file. Never infer it.
+
+1. Find the repository root's `AGENTS.md`. Fall back to `CLAUDE.md` when
+   there is no `AGENTS.md`; in ma-client they are one file through a symlink.
+   Look for the section headed `## Agent data policy` or
+   `## 에이전트 데이터 정책`.
+2. **If the section exists,** apply it as written. It lists:
+   - the project type (company or personal);
+   - the provider families allowed to receive code, diffs, logs or data
+     (for example `Claude, Codex, Gemini (Antigravity)`);
+   - whether free or data-sharing models are allowed;
+   - whether Global-region models (hosted outside the EU/US) are allowed;
+   - who decided it, and when.
+   Only the user changes it. When the user's request in this session
+   contradicts it, ask before acting and update the section with the answer.
+3. **If the section is missing,** ask the user before the first wave. Ask
+   these four questions in one prompt: project type, allowed families,
+   free models, Global region. Offer the most conservative choice first for
+   a repository whose `origin` is under an organization rather than the
+   user's own account. Then write the answers into the rules file as the
+   section above, in the file's language. When that file is shared with a
+   team (tracked in a company repository), follow the repository's own
+   rules for changing rule documents and ask before you commit, push or open
+   a PR.
+4. **If you cannot ask** (non-interactive run), apply the most conservative
+   policy for this run: Claude, Codex and Gemini (Antigravity) only, no free
+   models, no Global region. Report that the policy is missing.
+5. Put the resolved policy in every worker brief. Workers must not send the
+   project's content to any other provider.
+
+Families that the policy excludes are unavailable for this run, not
+substitutable. When the policy excludes OpenCode and Codex is past
+2026-11-16, judgment is Claude plus the coordinator's own synthesis.
+Gemini 4 Argon High is the added voice on high-stakes reviews only.
 
 ## Preserve the user's authority
 
@@ -138,15 +179,13 @@ Argon's quota):
   - In Orca, `--effort` is unsupported for OpenCode, and `--model` needs an
     existing worktree (`--worktree current` or a selector), not `new-*`.
   - Models the Go workspace serves only under the Global region (hosted
-    outside the EU/US; DeepSeek on 2026-11-06) are blocked on company projects
-    until company policy allows them.
-- **Free models are banned on company projects** (user, 2026-11-06). That
-  means every `*-free` id, `big-pickle`, every `opencode/*` Zen free model and
-  any `*-contributor*` model. Several of them retain or train on prompts. A
-  company project is any repository whose `origin` is under the GitHub org
-  `themoin`, or any path under `~/Documents/development/moin` or an Orca
-  workspace of those repositories; when unsure, treat it as company. On
-  personal projects free models are allowed.
+    outside the EU/US; DeepSeek on 2026-11-06) are used only where the
+    project's data policy allows the Global region.
+- **Free and data-sharing models** (every `*-free` id, `big-pickle`, the
+  `opencode/*` Zen free models, any `*-contributor*` model) retain or train on
+  prompts. Use them only where the project's data policy allows them.
+  The user's default (2026-11-06) is banned on company projects and allowed
+  on personal ones.
 
 1. **An explicit request wins outright.** A named family or count is preserved
    exactly. If a requested family is unavailable, say so and stop; never

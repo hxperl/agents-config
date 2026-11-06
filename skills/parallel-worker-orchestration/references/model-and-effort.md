@@ -131,14 +131,16 @@ Antigravity also serves `claude-opus-5-5-*`, `claude-sonnet-5-5-*` and
 ## 3b. OpenCode Go — choose the model per wave
 
 The Go catalog changes often, so this file fixes the **selection rule**, not
-the ids. Run it at the start of each wave that has an OpenCode slot:
+the ids. Skip OpenCode entirely when the project's agent data policy does not
+list it as an allowed family. Otherwise run this at the start of each wave
+that has an OpenCode slot:
 
 1. `opencode models` — list the current ids. Use `opencode-go/*` (the paid Go
-   plan). `opencode/*` is Zen; on company projects use none of it.
-2. Drop what the project forbids:
-   - free and data-sharing ids (see **Free models** below) on company projects;
-   - Global-region models on company projects. They fail with "hosted outside
-     Europe and the United States" until the workspace selects Global.
+   plan). `opencode/*` is Zen, and only its free models are relevant here.
+2. Drop what the project's data policy forbids:
+   - free and data-sharing ids (see **Free models** below);
+   - Global-region models. They fail with "hosted outside Europe and the
+     United States" until the workspace selects Global.
    - families that duplicate the pool: `claude-*` (our Claude family). Drop
      `gpt-*` too while Codex is live; after 2026-11-16 a `gpt-*` id may
      fill a non-Claude slot.
@@ -171,11 +173,9 @@ slot. A dozen one-line smoke calls used 2% of the 5-hour window.
 
 **Free models.** Every `*-free` id, `big-pickle`, the `opencode/*` Zen free
 models and `*-contributor*` models are free for a limited time, and several
-of them retain prompts or use them for training (opencode.ai/docs/zen). They
-are **banned on company projects**: a repository whose `origin` is under the
-GitHub org `themoin`, or a path under `~/Documents/development/moin` or an
-Orca workspace of those repositories. When unsure, treat it as company. On
-personal projects they are allowed (user, 2026-11-06).
+of them retain prompts or use them for training (opencode.ai/docs/zen). Use
+them only where the project's agent data policy allows them (SKILL.md,
+"Resolve the project's agent data policy").
 
 ---
 
@@ -254,7 +254,7 @@ remaining split to the user.
   to finish in few turns, and never let an uncited Flash claim into a
   conclusion.
 - **Do not pick Claude or GPT models inside Antigravity** (§3).
-- **No free models on company projects** (§3b), whatever the quota looks like.
+- **The project's data policy outranks quota.** Never route to an excluded family or a free model because it has headroom.
 - **Argon is weekly-only and slow.** Never use it for fact work or ordinary
   review. Check its bucket before each slot.
 - **A smaller model at high effort is not a bigger model.**
